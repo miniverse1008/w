@@ -1,0 +1,3197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Regime-Aware AI Post-Processor | Monsoon Rainfall</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+<style>
+:root{
+  --navy-900:#070d1c; --navy-800:#0b1428; --navy-700:#101c36; --navy-600:#16243f;
+  --line:#1e3054; --line-2:#27395e;
+  --ink:#e8eefc; --ink-2:#a8b8d8; --ink-3:#6f83a8;
+  --accent:#4da3ff; --accent-2:#2b7fd4;
+  --ok:#3ddc97; --warn:#ffc857; --bad:#ff6b6b; --purple:#b18cff; --cyan:#4fd8e8;
+  --radius:12px; --radius-sm:8px;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:radial-gradient(1200px 700px at 15% -10%,#132648 0%,var(--navy-900) 55%) fixed,var(--navy-900);
+  color:var(--ink);
+  font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  font-size:14px; line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:var(--accent)}
+button,input,select,textarea{font:inherit;color:inherit}
+
+.app{max-width:1680px;margin:0 auto;padding:0 18px 64px}
+
+header.top{
+  position:sticky;top:0;z-index:900;
+  background:rgba(7,13,28,.88);backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--line);
+  margin:0 -18px 0; padding:12px 18px;
+}
+.top-row{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:11px;min-width:280px}
+.brand .logo{
+  width:34px;height:34px;border-radius:9px;flex:0 0 auto;
+  background:linear-gradient(135deg,var(--accent),var(--purple));
+  display:grid;place-items:center;font-weight:800;font-size:15px;color:#06101f;
+}
+.brand h1{font-size:15px;margin:0;font-weight:650;letter-spacing:.2px}
+.brand .sub{font-size:11px;color:var(--ink-3);letter-spacing:.35px;text-transform:uppercase}
+.top-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-left:auto}
+
+.ctl{
+  display:flex;align-items:center;gap:7px;
+  background:var(--navy-700);border:1px solid var(--line);
+  border-radius:var(--radius-sm);padding:5px 9px;
+}
+.ctl label{font-size:10.5px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.5px;white-space:nowrap}
+.ctl select,.ctl input{
+  background:transparent;border:0;outline:0;font-size:12.5px;color:var(--ink);
+  max-width:170px;cursor:pointer;
+}
+.ctl select option{background:var(--navy-700)}
+
+.btn{
+  background:var(--navy-600);border:1px solid var(--line-2);color:var(--ink);
+  border-radius:var(--radius-sm);padding:7px 13px;cursor:pointer;font-size:12.5px;
+  transition:background .15s,border-color .15s;
+}
+.btn:hover{background:#1c2d4d;border-color:#37507f}
+.btn.primary{background:linear-gradient(135deg,var(--accent-2),var(--accent));border-color:transparent;color:#04101f;font-weight:600}
+.btn.primary:hover{filter:brightness(1.1)}
+.btn.ghost{background:transparent}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+
+.pill{
+  display:inline-flex;align-items:center;gap:6px;
+  font-size:11px;padding:4px 10px;border-radius:99px;
+  border:1px solid var(--line-2);background:var(--navy-700);color:var(--ink-2);
+  white-space:nowrap;
+}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--ink-3);flex:0 0 auto}
+.dot.ok{background:var(--ok);box-shadow:0 0 8px rgba(61,220,151,.7)}
+.dot.warn{background:var(--warn);box-shadow:0 0 8px rgba(255,200,87,.7)}
+.dot.bad{background:var(--bad);box-shadow:0 0 8px rgba(255,107,107,.7)}
+
+nav.tabs{
+  display:flex;gap:3px;overflow-x:auto;margin:14px 0 0;padding-bottom:2px;
+  border-bottom:1px solid var(--line);scrollbar-width:thin;
+}
+nav.tabs::-webkit-scrollbar{height:5px}
+nav.tabs::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:4px}
+nav.tabs button{
+  background:transparent;border:0;border-bottom:2px solid transparent;
+  color:var(--ink-3);padding:9px 14px;cursor:pointer;font-size:13px;white-space:nowrap;
+  border-radius:6px 6px 0 0;transition:color .15s,background .15s;
+}
+nav.tabs button:hover{color:var(--ink-2);background:rgba(77,163,255,.06)}
+nav.tabs button.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+
+.banner{
+  display:flex;gap:10px;align-items:flex-start;
+  border-radius:var(--radius-sm);padding:10px 13px;font-size:12.5px;
+  border:1px solid;margin:14px 0;
+}
+.banner.info{background:rgba(77,163,255,.07);border-color:rgba(77,163,255,.3);color:#c3ddfb}
+.banner.warn{background:rgba(255,200,87,.07);border-color:rgba(255,200,87,.32);color:#f5e0ab}
+.banner.bad{background:rgba(255,107,107,.07);border-color:rgba(255,107,107,.32);color:#f7c4c4}
+.banner.ok{background:rgba(61,220,151,.07);border-color:rgba(61,220,151,.3);color:#bdf0d7}
+.banner b{color:#fff}
+
+.panel{
+  background:linear-gradient(180deg,rgba(22,36,63,.55),rgba(11,20,40,.55));
+  border:1px solid var(--line);border-radius:var(--radius);
+  padding:15px 16px;margin-bottom:16px;
+}
+.panel > h2{
+  font-size:13px;margin:0 0 4px;font-weight:650;letter-spacing:.35px;
+  text-transform:uppercase;color:var(--ink-2);
+  display:flex;align-items:center;gap:9px;flex-wrap:wrap;
+}
+.panel > h2 .tag{
+  font-size:9.5px;padding:2px 7px;border-radius:5px;text-transform:uppercase;letter-spacing:.6px;
+  border:1px solid var(--line-2);color:var(--ink-3);background:var(--navy-800);font-weight:600;
+}
+.panel > .desc{font-size:12px;color:var(--ink-3);margin:0 0 13px;max-width:110ch}
+
+.grid{display:grid;gap:14px}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media(max-width:1180px){.g4{grid-template-columns:repeat(2,1fr)}.g3{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:820px){.g2,.g3,.g4{grid-template-columns:1fr}}
+
+.kpi{
+  background:var(--navy-800);border:1px solid var(--line);
+  border-radius:var(--radius);padding:13px 14px;position:relative;overflow:hidden;
+}
+.kpi::after{content:"";position:absolute;inset:0 auto 0 0;width:3px;background:var(--accent);opacity:.75}
+.kpi.k-raw::after{background:var(--ink-3)}
+.kpi.k-ai::after{background:var(--ok)}
+.kpi.k-obs::after{background:var(--cyan)}
+.kpi.k-risk::after{background:var(--bad)}
+.kpi .lbl{font-size:10.5px;text-transform:uppercase;letter-spacing:.65px;color:var(--ink-3)}
+.kpi .val{font-size:26px;font-weight:650;margin:5px 0 1px;font-variant-numeric:tabular-nums;letter-spacing:-.5px}
+.kpi .unit{font-size:12px;color:var(--ink-3);font-weight:400;margin-left:3px}
+.kpi .meta{font-size:11.5px;color:var(--ink-2)}
+
+.tbl-wrap{overflow:auto;border:1px solid var(--line);border-radius:var(--radius-sm);max-height:560px}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+th,td{padding:8px 10px;text-align:left;border-bottom:1px solid rgba(30,48,84,.65);white-space:nowrap}
+th{
+  position:sticky;top:0;background:var(--navy-700);z-index:2;
+  font-size:10.5px;text-transform:uppercase;letter-spacing:.55px;color:var(--ink-3);font-weight:600;
+  cursor:pointer;user-select:none;
+}
+th:hover{color:var(--accent)}
+th.no-sort{cursor:default}
+tbody tr:hover{background:rgba(77,163,255,.055);cursor:pointer}
+tbody tr.sel{background:rgba(77,163,255,.13)}
+td.num{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--mono);font-size:12px}
+
+.chip{
+  display:inline-block;padding:2px 8px;border-radius:99px;font-size:10.5px;
+  border:1px solid var(--line-2);background:var(--navy-700);color:var(--ink-2);white-space:nowrap;
+}
+.chip.r-Active{background:rgba(61,220,151,.13);border-color:rgba(61,220,151,.4);color:#9ff0c6}
+.chip.r-Break{background:rgba(255,200,87,.13);border-color:rgba(255,200,87,.4);color:#f7dfa3}
+.chip.r-Low{background:rgba(255,107,107,.13);border-color:rgba(255,107,107,.4);color:#ffb8b8}
+.chip.r-Coastal{background:rgba(79,216,232,.13);border-color:rgba(79,216,232,.4);color:#adf0f8}
+.chip.r-Orographic{background:rgba(177,140,255,.13);border-color:rgba(177,140,255,.4);color:#d9c7ff}
+.chip.r-Western{background:rgba(77,163,255,.13);border-color:rgba(77,163,255,.4);color:#bcdcfb}
+
+.chart-box{position:relative;height:290px;width:100%}
+.chart-box.tall{height:360px}
+.chart-box.short{height:215px}
+
+/* ---- MAP: guaranteed dimensions & stacking context ---- */
+#map{
+  height:560px;
+  width:100%;
+  min-height:560px;
+  border-radius:var(--radius-sm);
+  border:1px solid var(--line);
+  background:var(--navy-800);
+  position:relative;
+  z-index:0;
+}
+#map.map-unavailable{
+  display:grid;place-items:center;text-align:center;padding:24px;
+  color:var(--ink-3);font-size:13px;
+}
+
+.leaflet-container{background:#08111f;font-family:inherit}
+.leaflet-popup-content-wrapper{background:var(--navy-700);color:var(--ink);border:1px solid var(--line-2);border-radius:9px}
+.leaflet-popup-tip{background:var(--navy-700)}
+.leaflet-popup-content{margin:11px 13px;font-size:12.5px;line-height:1.55}
+.leaflet-control-attribution{background:rgba(7,13,28,.8)!important;color:var(--ink-3)!important;font-size:10px}
+.leaflet-control-attribution a{color:var(--accent)!important}
+.leaflet-bar a{background:var(--navy-700)!important;color:var(--ink)!important;border-color:var(--line)!important}
+.leaflet-bar a:hover{background:#1c2d4d!important}
+.leaflet-tooltip{
+  background:var(--navy-700);border:1px solid var(--line-2);color:var(--ink);
+  box-shadow:none;font-size:11.5px;border-radius:6px;padding:4px 8px;
+}
+.leaflet-tooltip-top:before{border-top-color:var(--line-2)}
+
+.legend{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin-top:9px;font-size:11px;color:var(--ink-2)}
+.legend .sw{width:15px;height:11px;border-radius:3px;display:inline-block;margin-right:5px;vertical-align:-1px}
+
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.spacer{flex:1}
+small.muted,.muted{color:var(--ink-3)}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+hr.sep{border:0;border-top:1px solid var(--line);margin:14px 0}
+
+input[type=range]{-webkit-appearance:none;appearance:none;height:4px;background:var(--line-2);border-radius:4px;outline:0;flex:1;min-width:120px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid var(--navy-900)}
+input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid var(--navy-900)}
+
+.filezone{
+  border:1.5px dashed var(--line-2);border-radius:var(--radius);padding:24px;text-align:center;
+  color:var(--ink-3);cursor:pointer;transition:.18s;background:rgba(22,36,63,.35);
+}
+.filezone:hover,.filezone.drag{border-color:var(--accent);color:var(--ink-2);background:rgba(77,163,255,.07)}
+
+.decomp-row{display:flex;align-items:center;gap:11px;padding:7px 0;border-bottom:1px solid rgba(30,48,84,.55);font-size:12.5px}
+.decomp-row .bar{height:9px;border-radius:5px;min-width:2px;transition:width .3s}
+.decomp-row .nm{width:190px;color:var(--ink-2);flex:0 0 auto}
+.decomp-row .vl{margin-left:auto;font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+.alert-item{
+  display:flex;gap:11px;align-items:flex-start;padding:10px 12px;border-radius:var(--radius-sm);
+  border:1px solid var(--line);background:var(--navy-800);margin-bottom:8px;
+}
+.alert-item .sev{width:4px;align-self:stretch;border-radius:3px;flex:0 0 auto}
+.sev.red{background:var(--bad)} .sev.orange{background:#ff9d4d} .sev.yellow{background:var(--warn)} .sev.green{background:var(--ok)}
+
+.tooltip-term{border-bottom:1px dotted var(--ink-3);cursor:help}
+
+.modal-bg{
+  position:fixed;inset:0;background:rgba(4,8,18,.78);z-index:2000;
+  display:none;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px);
+}
+.modal-bg.show{display:flex}
+.modal{
+  background:var(--navy-800);border:1px solid var(--line-2);border-radius:var(--radius);
+  max-width:820px;width:100%;max-height:85vh;overflow:auto;padding:22px 24px;
+}
+.modal h3{margin:0 0 12px;font-size:16px}
+.modal h4{margin:18px 0 6px;font-size:13px;color:var(--accent);text-transform:uppercase;letter-spacing:.5px}
+.modal p,.modal li{font-size:13px;color:var(--ink-2);line-height:1.65}
+.modal kbd{background:var(--navy-700);border:1px solid var(--line-2);border-bottom-width:2px;border-radius:5px;padding:1px 6px;font-family:var(--mono);font-size:11.5px;color:var(--ink)}
+
+.empty{padding:36px 18px;text-align:center;color:var(--ink-3);font-size:13px}
+.hidden{display:none!important}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-track{background:var(--navy-800)}
+::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:5px}
+::-webkit-scrollbar-thumb:hover{background:#37507f}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="top-row">
+    <div class="brand">
+      <div class="logo">RA</div>
+      <div>
+        <h1>Regime-Aware AI Post-Processor</h1>
+        <div class="sub">Monsoon Rainfall · Research Platform</div>
+      </div>
+    </div>
+
+    <div class="top-controls">
+      <div class="ctl">
+        <label for="srcSel">Data source</label>
+        <select id="srcSel"></select>
+      </div>
+      <div class="ctl">
+        <label for="refreshSel">Refresh</label>
+        <select id="refreshSel">
+          <option value="0">Manual</option>
+          <option value="60000">60 s</option>
+          <option value="300000" selected>5 min</option>
+          <option value="900000">15 min</option>
+        </select>
+      </div>
+      <span class="pill" id="statusPill"><span class="dot" id="statusDot"></span><span id="statusTxt">initialising</span></span>
+      <button class="btn ghost" id="helpBtn" title="Help (?)">? Help</button>
+    </div>
+  </div>
+</header>
+
+<div class="app">
+
+  <nav class="tabs" id="tabs" role="tablist">
+    <button data-tab="overview" class="active" role="tab">Overview</button>
+    <button data-tab="map" role="tab">Map</button>
+    <button data-tab="districts" role="tab">District Explorer</button>
+    <button data-tab="verify" role="tab">Verification</button>
+    <button data-tab="xai" role="tab">Explainable AI</button>
+    <button data-tab="uncert" role="tab">Uncertainty</button>
+    <button data-tab="alerts" role="tab">Alerts</button>
+    <button data-tab="history" role="tab">History</button>
+    <button data-tab="models" role="tab">Models</button>
+    <button data-tab="data" role="tab">Data & QC</button>
+    <button data-tab="system" role="tab">System</button>
+  </nav>
+
+  <div id="globalBanner"></div>
+
+  <!-- ================= OVERVIEW ================= -->
+  <section data-panel="overview">
+    <div class="panel">
+      <h2>Nowcast summary <span class="tag" id="ovIssueTag">—</span></h2>
+      <p class="desc">Domain-mean values across all districts for the selected forecast day. Raw NWP is the uncalibrated model field; AI-corrected is the output of the regime-aware post-processor.</p>
+      <div class="grid g4" id="kpiRow"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Forecast controls</h2>
+      <div class="row" style="margin-bottom:13px">
+        <div class="ctl">
+          <label for="regimeSel">Weather regime</label>
+          <select id="regimeSel"></select>
+        </div>
+        <div class="ctl">
+          <label for="daySel">Forecast day</label>
+          <select id="daySel"></select>
+        </div>
+        <div class="ctl" style="flex:1;min-width:260px">
+          <label for="thrSlider">Heavy-rain threshold</label>
+          <input type="range" id="thrSlider" min="10" max="204" step="1" value="64.5"/>
+          <span class="mono" id="thrOut" style="font-size:12px;min-width:74px;text-align:right">64.5 mm</span>
+        </div>
+      </div>
+      <div class="chart-box tall"><canvas id="chForecast"></canvas></div>
+    </div>
+
+    <div class="grid g2">
+      <div class="panel">
+        <h2>Correction magnitude by regime</h2>
+        <p class="desc">Domain-mean percentage change applied by the post-processor, grouped by the classified regime. Bars right of zero indicate the raw NWP was increased.</p>
+        <div class="chart-box"><canvas id="chRegimeCorr"></canvas></div>
+      </div>
+      <div class="panel">
+        <h2>Rainfall intensity distribution</h2>
+        <p class="desc">Histogram of district-day rainfall (mm/day), raw NWP versus AI-corrected. Log-spaced bins.</p>
+        <div class="chart-box"><canvas id="chDist"></canvas></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Top districts by AI-corrected rainfall <span class="tag" id="ovDayTag">—</span></h2>
+      <div class="tbl-wrap" style="max-height:340px"><table id="ovTopTbl">
+        <thead><tr>
+          <th data-sort="name">District</th><th data-sort="state">State</th>
+          <th data-sort="regime" class="no-sort">Regime</th>
+          <th data-sort="conf">Conf.</th>
+          <th data-sort="raw">Raw NWP</th><th data-sort="corr">AI-corrected</th>
+          <th data-sort="delta">Δ %</th><th data-sort="pHeavy">P(&gt;thr)</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </div>
+  </section>
+
+  <!-- ================= MAP ================= -->
+  <section data-panel="map" class="hidden">
+    <div class="panel">
+      <h2>Geographic rainfall analysis <span class="tag">demonstration domain</span></h2>
+      <p class="desc">District centroids for Northeast India plus an eastern-coastal and western-himalayan expansion set. Markers are sized by rainfall magnitude and coloured by the active layer.</p>
+
+      <div class="row" style="margin-bottom:12px">
+        <div class="ctl">
+          <label for="mapLayer">Layer</label>
+          <select id="mapLayer">
+            <option value="raw">Raw NWP rainfall</option>
+            <option value="corr" selected>AI-corrected rainfall</option>
+            <option value="obs">Observed rainfall (verification days)</option>
+            <option value="delta">Correction magnitude (Δ %)</option>
+            <option value="pheavy">Heavy-rain probability</option>
+            <option value="regime">Weather regime class</option>
+          </select>
+        </div>
+        <div class="ctl">
+          <label for="mapDay">Forecast day</label>
+          <select id="mapDay"></select>
+        </div>
+        <div class="ctl">
+          <label for="mapBase">Basemap</label>
+          <select id="mapBase">
+            <option value="dark" selected>Dark Matter</option>
+            <option value="satellite">Satellite</option>
+            <option value="streets">Streets</option>
+          </select>
+        </div>
+        <div class="ctl">
+          <label for="mapSize">Marker scale</label>
+          <input type="range" id="mapSize" min="6" max="30" value="16" style="width:110px"/>
+        </div>
+        <button class="btn" id="animBtn">▶ Animate days</button>
+        <span class="spacer"></span>
+        <span class="pill" id="mapCount">— districts</span>
+      </div>
+
+      <div id="map"></div>
+      <div class="legend" id="mapLegend"></div>
+    </div>
+  </section>
+
+  <!-- ================= DISTRICTS ================= -->
+  <section data-panel="districts" class="hidden">
+    <div class="panel">
+      <h2>District forecast table</h2>
+      <div class="row" style="margin-bottom:11px">
+        <div class="ctl"><label for="dSearch">Search</label><input id="dSearch" type="search" placeholder="district or state…"/></div>
+        <div class="ctl"><label for="dState">State</label><select id="dState"></select></div>
+        <div class="ctl"><label for="dRegime">Regime</label><select id="dRegime"></select></div>
+        <div class="ctl"><label for="dDay">Day</label><select id="dDay"></select></div>
+        <div class="ctl"><label for="dMin">Min mm</label><input id="dMin" type="number" min="0" step="1" value="0" style="width:70px"/></div>
+        <span class="spacer"></span>
+        <span class="pill" id="dCount">—</span>
+        <button class="btn" id="dExport">⬇ CSV</button>
+      </div>
+      <div class="tbl-wrap"><table id="distTbl">
+        <thead><tr>
+          <th data-sort="name">District</th><th data-sort="state">State</th>
+          <th data-sort="regime" class="no-sort">Regime</th><th data-sort="conf">Conf.</th>
+          <th data-sort="raw">Raw</th><th data-sort="corr">Corrected</th><th data-sort="delta">Δ %</th>
+          <th data-sort="obs">Obs</th><th data-sort="p10">P10</th><th data-sort="p90">P90</th>
+          <th data-sort="pHeavy">P(&gt;thr)</th><th data-sort="err">|Err|</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </div>
+
+    <div class="panel" id="dxPanel">
+      <h2>District detail <span class="tag" id="dxName">select a row</span></h2>
+      <div id="dxBody"><div class="empty">Click any district row above to open the detail view.</div></div>
+    </div>
+  </section>
+
+  <!-- ================= VERIFICATION ================= -->
+  <section data-panel="verify" class="hidden">
+    <div class="panel">
+      <h2>Verification summary <span class="tag" id="verTag">—</span></h2>
+      <p class="desc" id="verDesc">—</p>
+      <div class="grid g4" id="verKpis"></div>
+    </div>
+
+    <div class="grid g2">
+      <div class="panel">
+        <h2>Error metrics by model chain</h2>
+        <p class="desc">Computed on the synthetic verification archive. Lower MAE/RMSE and |Bias| are better; higher correlation is better.</p>
+        <div class="chart-box"><canvas id="chVerBar"></canvas></div>
+      </div>
+      <div class="panel">
+        <h2>Threshold skill (CSI / POD / FAR / FBI)</h2>
+        <div class="row" style="margin-bottom:10px">
+          <div class="ctl"><label for="verThr">Threshold</label>
+            <select id="verThr">
+              <option value="2.5">2.5 mm (rain day)</option>
+              <option value="15.5">15.5 mm (moderate)</option>
+              <option value="64.5" selected>64.5 mm (heavy)</option>
+              <option value="115.5">115.5 mm (very heavy)</option>
+              <option value="204.5">204.5 mm (extremely heavy)</option>
+            </select>
+          </div>
+        </div>
+        <div class="chart-box"><canvas id="chVerSkill"></canvas></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Metric table <span class="tag">by model chain</span></h2>
+      <div class="tbl-wrap" style="max-height:400px"><table id="verTbl">
+        <thead><tr>
+          <th>Chain</th><th class="num">n</th><th class="num">MAE</th><th class="num">RMSE</th>
+          <th class="num">Bias</th><th class="num">r</th><th class="num">CSI</th>
+          <th class="num">POD</th><th class="num">FAR</th><th class="num">FBI</th><th class="num">Brier</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table></div>
+      <p class="desc" style="margin-top:11px">
+        Verification period: <b id="verPeriod">—</b> · Sample size: <b id="verN">—</b> district-days ·
+        Observation source: <b id="verSrc">—</b> · Missing-data treatment: pairs with any missing member are dropped (listwise deletion).
+      </p>
+    </div>
+
+    <div class="grid g2">
+      <div class="panel">
+        <h2>Performance by forecast lead time</h2>
+        <div class="chart-box"><canvas id="chLead"></canvas></div>
+      </div>
+      <div class="panel">
+        <h2>Performance by weather regime</h2>
+        <div class="chart-box"><canvas id="chRegVer"></canvas></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Reliability diagram <span class="tag">probabilistic</span></h2>
+      <p class="desc">Forecast probability of exceeding the selected threshold versus observed frequency. A perfectly calibrated forecast lies on the 1:1 diagonal. Points below the diagonal indicate over-forecasting.</p>
+      <div class="chart-box"><canvas id="chReliability"></canvas></div>
+    </div>
+  </section>
+
+  <!-- ================= XAI ================= -->
+  <section data-panel="xai" class="hidden">
+    <div class="banner warn">
+      <span>⚠</span>
+      <div><b>Explanation method notice.</b> No trained gradient-boosting or deep model is attached to this build, so SHAP values cannot be computed. The contributions shown below are an <b>exact additive decomposition of the implemented rule-based correction</b> — mathematically faithful to the code that produced the number, but not a SHAP attribution over a learned function.</div>
+    </div>
+
+    <div class="panel">
+      <h2>Correction explorer</h2>
+      <div class="row" style="margin-bottom:13px">
+        <div class="ctl"><label for="xaiDist">District</label><select id="xaiDist"></select></div>
+        <div class="ctl"><label for="xaiDay">Forecast day</label><select id="xaiDay"></select></div>
+        <div class="ctl"><label for="xaiModel">Correction chain</label><select id="xaiModel"></select></div>
+      </div>
+      <div class="grid g2">
+        <div>
+          <h3 style="font-size:12px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.5px;margin:0 0 10px">Additive contribution to correction (mm/day)</h3>
+          <div id="xaiDecomp"></div>
+          <hr class="sep"/>
+          <div class="grid g3" id="xaiKpis"></div>
+        </div>
+        <div>
+          <h3 style="font-size:12px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.5px;margin:0 0 10px">Time-step correction profile</h3>
+          <div class="chart-box"><canvas id="chXaiTs"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid g2">
+      <div class="panel">
+        <h2>Regime contribution analysis</h2>
+        <p class="desc">For the selected district-day, how much of the total correction each regime hypothesis would have produced, weighted by its posterior probability.</p>
+        <div class="chart-box"><canvas id="chXaiRegime"></canvas></div>
+      </div>
+      <div class="panel">
+        <h2>Feature sensitivity (local perturbation)</h2>
+        <p class="desc">Each input is perturbed ±1 standard deviation and the resulting change in corrected rainfall is recorded. This is a local sensitivity, not a global importance.</p>
+        <div class="chart-box"><canvas id="chXaiSens"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= UNCERTAINTY ================= -->
+  <section data-panel="uncert" class="hidden">
+    <div class="banner info">
+      <span>ℹ</span>
+      <div><b>What this uncertainty is.</b> The spread shown here is a <b>parameter-perturbation ensemble</b>: the correction coefficients are resampled 60 times from their assumed error distribution, with spread scaled by <code>(1 − regime confidence)</code>. It propagates <i>correction</i> uncertainty only.</div>
+    </div>
+
+    <div class="panel">
+      <h2>Ensemble forecast with prediction intervals</h2>
+      <div class="row" style="margin-bottom:12px">
+        <div class="ctl"><label for="uDist">District</label><select id="uDist"></select></div>
+        <span class="spacer"></span>
+        <span class="pill">members: 60</span>
+        <span class="pill" id="uSpread">—</span>
+      </div>
+      <div class="chart-box tall"><canvas id="chEnsemble"></canvas></div>
+    </div>
+
+    <div class="grid g2">
+      <div class="panel">
+        <h2>Exceedance probability by district</h2>
+        <p class="desc">Probability that the corrected forecast exceeds the threshold set on the Overview tab. Category thresholds follow IMD practice: heavy ≥ 64.5 mm/day, very heavy ≥ 115.5, extremely heavy ≥ 204.5.</p>
+        <div class="row" style="margin-bottom:10px">
+          <div class="ctl"><label for="uThr">Threshold</label>
+            <select id="uThr">
+              <option value="15.5">15.5 mm</option>
+              <option value="64.5" selected>64.5 mm</option>
+              <option value="115.5">115.5 mm</option>
+              <option value="204.5">204.5 mm</option>
+            </select>
+          </div>
+        </div>
+        <div class="chart-box"><canvas id="chExceed"></canvas></div>
+      </div>
+      <div class="panel">
+        <h2>Uncertainty: raw NWP vs corrected</h2>
+        <p class="desc">Ensemble standard deviation per district. A reduction indicates the correction is tightening the forecast; an increase means it is adding spread.</p>
+        <div class="chart-box"><canvas id="chUncComp"></canvas></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Confidence bands — all districts, selected day</h2>
+      <div class="tbl-wrap" style="max-height:400px"><table id="uncTbl">
+        <thead><tr>
+          <th>District</th><th class="num">P10</th><th class="num">P25</th><th class="num">Median</th>
+          <th class="num">P75</th><th class="num">P90</th><th class="num">IQR</th>
+          <th class="num">P(&gt;thr)</th><th>Confidence</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </div>
+  </section>
+
+  <!-- ================= ALERTS ================= -->
+  <section data-panel="alerts" class="hidden">
+    <div class="banner bad">
+      <span>⚠</span>
+      <div><b>Not an official warning service.</b> All alerts below are generated by this research prototype from synthetic data. They must never be used for public safety decisions. Authoritative warnings are issued only by <b>IMD</b> and designated state agencies.</div>
+    </div>
+
+    <div class="panel">
+      <h2>Alert configuration</h2>
+      <div class="row">
+        <div class="ctl"><label for="alThr">Heavy threshold</label>
+          <select id="alThr">
+            <option value="64.5" selected>64.5 mm/day (heavy)</option>
+            <option value="115.5">115.5 mm/day (very heavy)</option>
+            <option value="204.5">204.5 mm/day (extremely heavy)</option>
+          </select>
+        </div>
+        <div class="ctl"><label for="alProb">Min probability</label>
+          <input type="range" id="alProb" min="5" max="95" value="40" style="width:130px"/>
+          <span class="mono" id="alProbOut" style="font-size:12px;width:38px">40%</span>
+        </div>
+        <div class="ctl"><label for="alDay">Forecast day</label><select id="alDay"></select></div>
+        <span class="spacer"></span>
+        <span class="pill" id="alCount">—</span>
+        <button class="btn" id="alExport">⬇ CSV</button>
+      </div>
+    </div>
+
+    <div class="grid g2">
+      <div class="panel">
+        <h2>Active alerts</h2>
+        <div id="alertList"></div>
+      </div>
+      <div class="panel">
+        <h2>Alert severity by district</h2>
+        <div class="chart-box tall"><canvas id="chAlertBar"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= HISTORY ================= -->
+  <section data-panel="history" class="hidden">
+    <div class="panel">
+      <h2>Historical rainfall explorer</h2>
+      <div class="row" style="margin-bottom:12px">
+        <div class="ctl"><label for="hDist">District</label><select id="hDist"></select></div>
+        <div class="ctl"><label for="hDays">Window</label>
+          <select id="hDays">
+            <option value="30">Last 30 days</option>
+            <option value="90" selected>Last 90 days</option>
+            <option value="180">Last 180 days</option>
+            <option value="365">Last 365 days</option>
+          </select>
+        </div>
+        <span class="spacer"></span>
+        <button class="btn" id="hExport">⬇ CSV</button>
+      </div>
+      <div class="chart-box tall"><canvas id="chHist"></canvas></div>
+    </div>
+
+    <div class="grid g2">
+      <div class="panel">
+        <h2>Monthly accumulation</h2>
+        <div class="chart-box"><canvas id="chHistMonthly"></canvas></div>
+      </div>
+      <div class="panel">
+        <h2>Rainfall anomaly vs climatology</h2>
+        <p class="desc">Departure from the synthetic 30-day climatological mean, expressed as a percentage.</p>
+        <div class="chart-box"><canvas id="chAnom"></canvas></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Regime frequency over the window</h2>
+      <div class="chart-box short"><canvas id="chHistRegime"></canvas></div>
+    </div>
+  </section>
+
+  <!-- ================= MODELS ================= -->
+  <section data-panel="models" class="hidden">
+    <div class="banner warn">
+      <span>⚠</span>
+      <div><b>Implementation status.</b> Only the chains marked <b>IMPLEMENTED</b> execute real arithmetic in this build. Everything marked <b>NOT TRAINED</b> is registered in the interface so the architecture is complete, but it will not produce output.</div>
+    </div>
+
+    <div class="panel">
+      <h2>Correction chain registry</h2>
+      <div class="tbl-wrap" style="max-height:420px"><table id="modelTbl">
+        <thead><tr>
+          <th>Chain</th><th>Family</th><th>Status</th><th class="num">Params</th>
+          <th>Regime-aware</th><th>Output</th><th class="no-sort">Action</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </div>
+
+    <div class="panel">
+      <h2>Chain comparison on verification archive</h2>
+      <p class="desc">Only implemented chains are evaluated. Metrics are recomputed from the same held-out synthetic archive used in Verification.</p>
+      <div class="chart-box"><canvas id="chModelComp"></canvas></div>
+    </div>
+
+    <div class="panel">
+      <h2>Correction coefficients in force</h2>
+      <p class="desc">These are the exact multiplicative/additive coefficients applied by the <code>regime_rule</code> and <code>regime_adaptive</code> chains. They are hand-set priors, not fitted parameters.</p>
+      <div class="tbl-wrap" style="max-height:340px"><table id="coefTbl">
+        <thead><tr><th>Regime</th><th class="num">scale</th><th class="num">offset (mm)</th><th class="num">intensity coef</th><th class="num">orographic gain</th><th>Rationale</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </div>
+  </section>
+
+  <!-- ================= DATA ================= -->
+  <section data-panel="data" class="hidden">
+    <div class="panel">
+      <h2>Dataset upload</h2>
+      <p class="desc">CSV with columns <code>date, district, rainfall_mm</code> (optional <code>lat, lon, source</code>). Values are never modified silently — every transformation is listed for review before you accept it.</p>
+      <div class="filezone" id="filezone">
+        <div style="font-size:26px;margin-bottom:6px">⬆</div>
+        <div><b>Drop a CSV here</b> or click to browse</div>
+        <div style="font-size:11.5px;margin-top:5px">Max 20 MB · UTF-8 · comma-delimited</div>
+      </div>
+      <input type="file" id="fileInput" accept=".csv,text/csv" class="hidden"/>
+    </div>
+
+    <div class="panel hidden" id="qcPanel">
+      <h2>Quality control report <span class="tag" id="qcFile">—</span></h2>
+      <div class="grid g4" id="qcKpis"></div>
+      <div id="qcIssues" style="margin-top:14px"></div>
+      <div class="row" style="margin-top:14px">
+        <button class="btn primary" id="qcAccept">✓ Accept into analysis</button>
+        <button class="btn" id="qcDownload">⬇ Download cleaned CSV</button>
+        <button class="btn ghost" id="qcDiscard">Discard</button>
+        <span class="spacer"></span>
+        <span class="muted" id="qcNote"></span>
+      </div>
+    </div>
+
+    <div class="panel" id="previewPanel">
+      <h2>Dataset preview <span class="tag" id="prevTag">sample</span></h2>
+      <div class="tbl-wrap" style="max-height:320px"><table id="prevTbl"></table></div>
+    </div>
+
+    <div class="panel">
+      <h2>Upload history</h2>
+      <div id="uploadHistory"><div class="empty">No datasets uploaded this session.</div></div>
+    </div>
+  </section>
+
+  <!-- ================= SYSTEM ================= -->
+  <section data-panel="system" class="hidden">
+    <div class="panel">
+      <h2>System health</h2>
+      <div class="grid g4" id="sysKpis"></div>
+    </div>
+
+    <div class="grid g2">
+      <div class="panel">
+        <h2>Data source registry</h2>
+        <div class="tbl-wrap" style="max-height:400px"><table id="srcTbl">
+          <thead><tr><th>Source</th><th>Kind</th><th>Status</th><th>Configured</th></tr></thead>
+          <tbody></tbody>
+        </table></div>
+      </div>
+      <div class="panel">
+        <h2>Event log</h2>
+        <div id="sysLog" style="font-family:var(--mono);font-size:11.5px;max-height:400px;overflow:auto;line-height:1.85"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Architecture note</h2>
+      <p class="desc" style="max-width:none">
+        This build is a <b>single-file frontend</b>. The recommended production topology is:
+        FastAPI backend (forecast, observations, correction, verification, upload, exports endpoints) ·
+        Xarray + NumPy/Pandas for gridding and aggregation · scikit-learn / PyTorch for the correction models ·
+        PostgreSQL + PostGIS for district geometry and verified archives ·
+        Celery/Redis for ingestion and batch verification jobs ·
+        the same Leaflet + Chart.js frontend consuming the REST API.
+      </p>
+    </div>
+  </section>
+
+</div>
+
+<!-- ================= HELP MODAL ================= -->
+<div class="modal-bg" id="helpModal">
+  <div class="modal">
+    <h3>Help &amp; scientific notes</h3>
+
+    <h4>Keyboard shortcuts</h4>
+    <p><kbd>1</kbd>–<kbd>9</kbd>, <kbd>0</kbd> switch tabs · <kbd>R</kbd> refresh data · <kbd>?</kbd> toggle this help · <kbd>Esc</kbd> close</p>
+
+    <h4>Rainfall thresholds (IMD convention)</h4>
+    <ul>
+      <li>Rain day: ≥ 2.5 mm/day</li>
+      <li>Moderate: 15.5 – 64.4 mm/day</li>
+      <li>Heavy: 64.5 – 115.4 mm/day</li>
+      <li>Very heavy: 115.5 – 204.4 mm/day</li>
+      <li>Extremely heavy: ≥ 204.5 mm/day</li>
+    </ul>
+
+    <h4>Metrics</h4>
+    <p>
+      <span class="tooltip-term">MAE</span> mean absolute error · <span class="tooltip-term">RMSE</span> root mean square error, penalises large errors more ·
+      <span class="tooltip-term">Bias</span> mean(f − o), positive = over-forecast ·
+      <span class="tooltip-term">CSI</span> critical success index = H/(H+M+F) ·
+      <span class="tooltip-term">POD</span> probability of detection = H/(H+M) ·
+      <span class="tooltip-term">FAR</span> false alarm ratio = F/(H+F) ·
+      <span class="tooltip-term">FBI</span> frequency bias = (H+F)/(H+M) ·
+      <span class="tooltip-term">Brier</span> mean squared error of probability forecasts.
+    </p>
+
+    <h4>What is real vs simulated in this build</h4>
+    <ul>
+      <li><b>Real:</b> all arithmetic — the correction, the ensemble, every metric, the CSV quality control, the exports.</li>
+      <li><b>Simulated:</b> the weather itself. Rainfall, observations and regime states come from a seeded stochastic generator.</li>
+      <li><b>Not implemented:</b> any trained ML model, SHAP, real IMD/NWP ingestion, flood modelling, data assimilation, authentication.</li>
+    </ul>
+
+    <h4>Limitations</h4>
+    <p>Correction coefficients are hand-set illustrative priors, not fitted parameters. Regime classification is a heuristic softmax over synthetic indices, not a validated classifier. Verification statistics describe performance on generated data and carry no information about real forecast skill. None of the accuracy figures here should be cited.</p>
+
+    <div class="row" style="margin-top:18px">
+      <button class="btn primary" id="helpClose">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ==========================================================================
+   Regime-Aware AI Post-Processor — frontend reference implementation
+   ========================================================================== */
+
+const REGIMES = [
+  "Active Monsoon","Break Monsoon","Low Pressure",
+  "Coastal","Orographic","Western Disturbance"
+];
+const REGIME_SHORT = {
+  "Active Monsoon":"r-Active","Break Monsoon":"r-Break","Low Pressure":"r-Low",
+  "Coastal":"r-Coastal","Orographic":"r-Orographic","Western Disturbance":"r-Western"
+};
+
+const THRESHOLDS = {
+  rain_day:2.5, moderate:15.5, heavy:64.5, very_heavy:115.5, extremely_heavy:204.5
+};
+
+const DISTRICTS = [
+  {id:"kamrup_m",  name:"Kamrup Metropolitan", state:"Assam",       lat:26.14, lon:91.74, elev:55,  oro:0.15, coast:0},
+  {id:"nagaon",    name:"Nagaon",              state:"Assam",       lat:26.35, lon:92.68, elev:70,  oro:0.10, coast:0},
+  {id:"dibrugarh", name:"Dibrugarh",           state:"Assam",       lat:27.47, lon:94.91, elev:110, oro:0.20, coast:0},
+  {id:"cachar",    name:"Cachar (Silchar)",    state:"Assam",       lat:24.82, lon:92.79, elev:30,  oro:0.35, coast:0},
+  {id:"jorhat",    name:"Jorhat",              state:"Assam",       lat:26.75, lon:94.22, elev:90,  oro:0.15, coast:0},
+  {id:"sonitpur",  name:"Sonitpur (Tezpur)",   state:"Assam",       lat:26.63, lon:92.80, elev:75,  oro:0.30, coast:0},
+  {id:"barpeta",   name:"Barpeta",             state:"Assam",       lat:26.32, lon:91.00, elev:45,  oro:0.10, coast:0},
+  {id:"dhubri",    name:"Dhubri",              state:"Assam",       lat:26.02, lon:89.98, elev:30,  oro:0.05, coast:0},
+  {id:"kokrajhar", name:"Kokrajhar",           state:"Assam",       lat:26.40, lon:90.27, elev:50,  oro:0.20, coast:0},
+  {id:"tinsukia",  name:"Tinsukia",            state:"Assam",       lat:27.49, lon:95.36, elev:130, oro:0.25, coast:0},
+  {id:"sivasagar", name:"Sivasagar",           state:"Assam",       lat:26.98, lon:94.63, elev:95,  oro:0.15, coast:0},
+  {id:"goalpara",  name:"Goalpara",            state:"Assam",       lat:26.17, lon:90.62, elev:35,  oro:0.10, coast:0},
+  {id:"karimganj", name:"Karimganj",           state:"Assam",       lat:24.87, lon:92.35, elev:25,  oro:0.30, coast:0},
+  {id:"hailakandi",name:"Hailakandi",          state:"Assam",       lat:24.68, lon:92.56, elev:30,  oro:0.35, coast:0},
+  {id:"dima_hasao",name:"Dima Hasao",          state:"Assam",       lat:25.18, lon:93.02, elev:700, oro:0.65, coast:0},
+  {id:"karbi",     name:"Karbi Anglong",       state:"Assam",       lat:26.10, lon:93.60, elev:400, oro:0.50, coast:0},
+  {id:"shillong",  name:"East Khasi Hills",    state:"Meghalaya",   lat:25.57, lon:91.88, elev:1500,oro:0.85, coast:0},
+  {id:"cherra",    name:"Cherrapunji",         state:"Meghalaya",   lat:25.27, lon:91.73, elev:1300,oro:1.00, coast:0},
+  {id:"west_garo", name:"West Garo Hills",     state:"Meghalaya",   lat:25.51, lon:90.22, elev:350, oro:0.45, coast:0},
+  {id:"ri_bhoi",   name:"Ri Bhoi",             state:"Meghalaya",   lat:25.90, lon:91.88, elev:300, oro:0.40, coast:0},
+  {id:"jaintia",   name:"West Jaintia Hills",  state:"Meghalaya",   lat:25.45, lon:92.20, elev:1200,oro:0.70, coast:0},
+  {id:"itanagar",  name:"Papum Pare",          state:"Arunachal",   lat:27.10, lon:93.62, elev:400, oro:0.55, coast:0},
+  {id:"tawang",    name:"Tawang",              state:"Arunachal",   lat:27.59, lon:91.87, elev:2600,oro:0.75, coast:0},
+  {id:"pasighat",  name:"East Siang",          state:"Arunachal",   lat:28.07, lon:95.33, elev:180, oro:0.45, coast:0},
+  {id:"ziro",      name:"Lower Subansiri",     state:"Arunachal",   lat:27.55, lon:93.83, elev:1600,oro:0.65, coast:0},
+  {id:"kohima",    name:"Kohima",              state:"Nagaland",    lat:25.67, lon:94.11, elev:1400,oro:0.60, coast:0},
+  {id:"dimapur",   name:"Dimapur",             state:"Nagaland",    lat:25.90, lon:93.73, elev:180, oro:0.20, coast:0},
+  {id:"mokokchung",name:"Mokokchung",          state:"Nagaland",    lat:26.32, lon:94.52, elev:1300,oro:0.55, coast:0},
+  {id:"imphal",    name:"Imphal West",         state:"Manipur",     lat:24.82, lon:93.94, elev:780, oro:0.25, coast:0},
+  {id:"churachand",name:"Churachandpur",       state:"Manipur",     lat:24.33, lon:93.68, elev:850, oro:0.50, coast:0},
+  {id:"aizawl",    name:"Aizawl",              state:"Mizoram",     lat:23.73, lon:92.72, elev:1100,oro:0.65, coast:0},
+  {id:"lunglei",   name:"Lunglei",             state:"Mizoram",     lat:22.89, lon:92.73, elev:1000,oro:0.55, coast:0},
+  {id:"agartala",  name:"West Tripura",        state:"Tripura",     lat:23.83, lon:91.28, elev:30,  oro:0.10, coast:0},
+  {id:"kailash",   name:"Unakoti",             state:"Tripura",     lat:24.33, lon:92.01, elev:60,  oro:0.25, coast:0},
+  {id:"gangtok",   name:"East Sikkim",         state:"Sikkim",      lat:27.33, lon:88.61, elev:1600,oro:0.90, coast:0},
+  {id:"puri",      name:"Puri",                state:"Odisha",      lat:19.81, lon:85.83, elev:10,  oro:0.05, coast:1},
+  {id:"ganjam",    name:"Ganjam",              state:"Odisha",      lat:19.38, lon:84.79, elev:35,  oro:0.15, coast:1},
+  {id:"balasore",  name:"Balasore",            state:"Odisha",      lat:21.49, lon:86.93, elev:15,  oro:0.05, coast:1},
+  {id:"kendrapara",name:"Kendrapara",          state:"Odisha",      lat:20.50, lon:86.42, elev:8,   oro:0.02, coast:1},
+  {id:"s24pgs",    name:"South 24 Parganas",   state:"West Bengal", lat:22.16, lon:88.43, elev:6,   oro:0.02, coast:1},
+  {id:"e_midnapur",name:"Purba Medinipur",     state:"West Bengal", lat:22.30, lon:87.92, elev:10,  oro:0.03, coast:1},
+  {id:"dehradun",  name:"Dehradun",            state:"Uttarakhand", lat:30.32, lon:78.03, elev:650, oro:0.70, coast:0},
+  {id:"shimla",    name:"Shimla",              state:"Himachal",    lat:31.10, lon:77.17, elev:2200,oro:0.85, coast:0}
+];
+
+const REGIME_COEF = {
+  "Active Monsoon":      {scale:0.90, offset:-1.20, intensity: 0.06, oroGain:0.30,
+                          why:"Persistent synoptic forcing; NWP tends to over-spread organised rainfall."},
+  "Break Monsoon":       {scale:1.18, offset: 0.40, intensity:-0.05, oroGain:0.20,
+                          why:"Suppressed large-scale flow; NWP under-forecasts isolated convective bursts."},
+  "Low Pressure":        {scale:0.86, offset:-2.00, intensity: 0.10, oroGain:0.35,
+                          why:"Intense localised cores; coarse NWP smears and over-extends the footprint."},
+  "Coastal":             {scale:0.94, offset:-0.80, intensity: 0.04, oroGain:0.15,
+                          why:"Land-sea contrast and offshore convection poorly resolved at model grid scale."},
+  "Orographic":          {scale:0.88, offset:-1.50, intensity: 0.12, oroGain:0.60,
+                          why:"Terrain-forced ascent; NWP underestimates sharp upslope gradients."},
+  "Western Disturbance": {scale:1.06, offset: 0.30, intensity:-0.02, oroGain:0.40,
+                          why:"Extra-tropical forcing; NWP timing error dominates over magnitude error."}
+};
+
+const REGIME_CLIMO_BASE = {
+  "Active Monsoon":0.30, "Break Monsoon":0.18, "Low Pressure":0.16,
+  "Coastal":0.08, "Orographic":0.20, "Western Disturbance":0.08
+};
+
+/* ---------------- utilities ---------------- */
+
+function mulberry32(a){
+  return function(){
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function gauss(rng){
+  let u = 0, v = 0;
+  while(u === 0) u = rng();
+  while(v === 0) v = rng();
+  return Math.sqrt(-2*Math.log(u)) * Math.cos(2*Math.PI*v);
+}
+const clamp = (x,a,b) => Math.min(b, Math.max(a, x));
+const fmt = (x,d=1) => (x==null || Number.isNaN(x)) ? "—" : Number(x).toFixed(d);
+const pct = (x,d=1) => (x==null || Number.isNaN(x)) ? "—" : (x>=0?"+":"") + (x*100).toFixed(d) + "%";
+const mean = a => a.length ? a.reduce((s,x)=>s+x,0)/a.length : NaN;
+function stdev(a){
+  if(a.length < 2) return NaN;
+  const m = mean(a);
+  return Math.sqrt(a.reduce((s,x)=>s+(x-m)**2,0)/(a.length-1));
+}
+function quantile(sorted, q){
+  if(!sorted.length) return NaN;
+  const pos = (sorted.length-1)*q, lo = Math.floor(pos), hi = Math.ceil(pos);
+  if(lo === hi) return sorted[lo];
+  return sorted[lo] + (sorted[hi]-sorted[lo])*(pos-lo);
+}
+function pearson(x,y){
+  const n = Math.min(x.length,y.length);
+  if(n < 3) return NaN;
+  const mx = mean(x.slice(0,n)), my = mean(y.slice(0,n));
+  let sxy=0, sxx=0, syy=0;
+  for(let i=0;i<n;i++){
+    const a = x[i]-mx, b = y[i]-my;
+    sxy += a*b; sxx += a*a; syy += b*b;
+  }
+  return (sxx===0||syy===0) ? NaN : sxy/Math.sqrt(sxx*syy);
+}
+function isoDate(d){ return d.toISOString().slice(0,10); }
+function addDays(d,n){ const x = new Date(d); x.setDate(x.getDate()+n); return x; }
+function dayLabel(d){ return d.toLocaleDateString("en-GB",{day:"2-digit",month:"short"}); }
+
+/* ---------------- data source registry ---------------- */
+
+const SOURCES = {
+  SYNTHETIC: {
+    id:"SYNTHETIC",
+    label:"Synthetic demonstration dataset",
+    kind:"Synthetic",
+    configured:true,
+    attribution:"Generated in-browser by a seeded stochastic model (seed 20240601). NOT an observation, NOT a forecast.",
+    note:"Reproducible across reloads."
+  },
+  IMD: {
+    id:"IMD", label:"IMD rainfall (gridded / district)", kind:"Observation",
+    configured:false, reason:"Requires an IMD data-sharing agreement and an API key."
+  },
+  NWP: {
+    id:"NWP", label:"NWP forecast (GFS / ECMWF / WRF)", kind:"Forecast",
+    configured:false, reason:"Requires a GRIB/NetCDF ingest pipeline."
+  },
+  SAT: {
+    id:"SAT", label:"Satellite rainfall estimate (IMERG / INSAT)", kind:"Observation",
+    configured:false, reason:"Requires Earthdata or MOSDAC credentials."
+  },
+  RADAR: {
+    id:"RADAR", label:"Doppler radar reflectivity", kind:"Observation",
+    configured:false, reason:"Requires a radar volume ingest and a Z-R relation."
+  },
+  STATION: {
+    id:"STATION", label:"District raingauge network", kind:"Observation",
+    configured:false, reason:"Requires station metadata and a QC pipeline."
+  }
+};
+
+/* ---------------- synthetic data engine ---------------- */
+
+const SYNTH_SEED = 20240601;
+const SYNTH_ISSUE = new Date();
+const FORECAST_DAYS = 5;
+
+const DataEngine = (() => {
+  let rng = mulberry32(SYNTH_SEED);
+  let cache = null;
+
+  function seasonalWeight(doy){
+    const peak = 196, sigma = 42;
+    return Math.exp(-((doy-peak)**2)/(2*sigma*sigma));
+  }
+
+  function baseRainfall(d, doy){
+    const s = seasonalWeight(doy);
+    let base = 6 + 22*s;
+    base *= (1 + 1.9*d.oro);
+    base *= (1 + 0.55*d.coast*s);
+    if(["Assam","Meghalaya","Arunachal","Nagaland","Manipur","Mizoram","Tripura","Sikkim"].includes(d.state)) base *= 1.35;
+    if(d.state === "Uttarakhand" || d.state === "Himachal") base *= (0.55 + 0.5*s);
+    return base;
+  }
+
+  function regimePosterior(d, doy, dayIdx){
+    const s = seasonalWeight(doy);
+    const w = {};
+    w["Active Monsoon"]      = REGIME_CLIMO_BASE["Active Monsoon"]      * (0.6 + 1.4*s) * (d.coast ? 0.8 : 1.0);
+    w["Break Monsoon"]       = REGIME_CLIMO_BASE["Break Monsoon"]       * (0.5 + 0.9*s);
+    w["Low Pressure"]        = REGIME_CLIMO_BASE["Low Pressure"]        * (0.7 + 1.2*s) * (1 + 0.5*d.oro);
+    w["Coastal"]             = REGIME_CLIMO_BASE["Coastal"]             * (d.coast ? 6.0 : 0.12) * (0.6 + 1.1*s);
+    w["Orographic"]          = REGIME_CLIMO_BASE["Orographic"]          * (1 + 3.0*d.oro) * (0.7 + 1.0*s);
+    w["Western Disturbance"] = REGIME_CLIMO_BASE["Western Disturbance"] * ((d.state==="Uttarakhand"||d.state==="Himachal") ? 7.0 : 0.18) * (1.6 - 1.1*s);
+
+    const dayRng = mulberry32(SYNTH_SEED + 977*dayIdx + 31*d.lat + 17*d.lon);
+    let tot = 0; const out = {};
+    for(const r of REGIMES){
+      const v = Math.max(1e-6, w[r] * Math.exp(0.55*gauss(dayRng)));
+      out[r] = v; tot += v;
+    }
+    for(const r of REGIMES) out[r] /= tot;
+    return out;
+  }
+
+  function rawNWP(d, doy, dayIdx, truth){
+    const dayRng = mulberry32(SYNTH_SEED + 4441*dayIdx + 89*Math.round(d.lat*100));
+    const leadPenalty = 1 + 0.10*dayIdx;
+    const sys = 1.12;
+    const noise = 1 + 0.30*gauss(dayRng)*leadPenalty;
+    let v = truth * sys * noise;
+    if(d.oro > 0.5) v *= (0.78 + 0.12*dayRng());
+    return Math.max(0, v);
+  }
+
+  function applyCorrection(raw, regime, confidence, d, chain){
+    if(chain === "raw_baseline") return raw;
+    const c = REGIME_COEF[regime];
+    if(chain === "stat_bias") return Math.max(0, raw * 0.93 - 0.6);
+    if(chain === "quantile_map"){
+      const t = Math.tanh((raw - 25)/25);
+      return Math.max(0, raw * (0.95 - 0.10*t));
+    }
+    if(chain === "regime_rule"){
+      const t = Math.tanh((raw - 25)/25);
+      return Math.max(0, raw * c.scale * (1 + c.intensity*t) + c.offset*(1 + c.oroGain*d.oro));
+    }
+    if(chain === "regime_adaptive"){
+      const t = Math.tanh((raw - 25)/25);
+      const regimeOut = raw * c.scale * (1 + c.intensity*t) + c.offset*(1 + c.oroGain*d.oro);
+      const fallbackOut = raw * 0.93 - 0.6;
+      return Math.max(0, confidence*regimeOut + (1-confidence)*fallbackOut);
+    }
+    return raw;
+  }
+
+  function ensemble(raw, regime, confidence, d, chain, nMembers){
+    if(chain === "raw_baseline") return new Array(nMembers).fill(raw);
+    const c = REGIME_COEF[regime];
+    const spread = (1 - confidence) + 0.25;
+    const out = [];
+    const eRng = mulberry32(SYNTH_SEED + 7001*Math.round(raw*10) + Math.round(d.lat*1000));
+    for(let m=0;m<nMembers;m++){
+      const s = c.scale * (1 + 0.075*spread*gauss(eRng));
+      const o = c.offset * (1 + 0.55 *spread*gauss(eRng));
+      const t = Math.tanh((raw - 25)/25);
+      out.push(Math.max(0, raw * s * (1 + c.intensity*t) + o*(1 + c.oroGain*d.oro)));
+    }
+    return out;
+  }
+
+  function build(){
+    const issue = SYNTH_ISSUE;
+    const doy = Math.floor((issue - new Date(issue.getFullYear(),0,0)) / 86400000);
+    const forecast = [];
+    const chains = ["raw_baseline","stat_bias","quantile_map","regime_rule","regime_adaptive"];
+
+    for(const d of DISTRICTS){
+      const base = baseRainfall(d, doy);
+      const dRng = mulberry32(SYNTH_SEED + Math.round(d.lat*7919) + Math.round(d.lon*104729));
+
+      for(let k=0;k<FORECAST_DAYS;k++){
+        const date = addDays(issue, k);
+        const truth = Math.max(0, base * (1 + 0.55*gauss(dRng)));
+        const posterior = regimePosterior(d, doy+k, k);
+        let bestR = REGIMES[0], bestP = -1;
+        for(const r of REGIMES){ if(posterior[r] > bestP){ bestP = posterior[r]; bestR = r; } }
+        const conf = clamp(bestP, 0, 1);
+        const raw = rawNWP(d, doy+k, k, truth);
+
+        const byChain = {};
+        for(const ch of chains) byChain[ch] = applyCorrection(raw, bestR, conf, d, ch);
+        const ens = ensemble(raw, bestR, conf, d, "regime_adaptive", 60);
+
+        forecast.push({
+          districtId:d.id, dayIdx:k, date, truth,
+          raw, corr:byChain["regime_adaptive"], byChain,
+          regime:bestR, confidence:conf, posterior, ens, regimeProbs:posterior
+        });
+      }
+    }
+
+    const archive = [];
+    const vRng = mulberry32(SYNTH_SEED + 555);
+    for(let k=89;k>=0;k--){
+      const date = addDays(issue, -k);
+      const dDoy = Math.floor((date - new Date(date.getFullYear(),0,0)) / 86400000);
+      for(const d of DISTRICTS){
+        const base = baseRainfall(d, dDoy);
+        const obs = Math.max(0, base * (1 + 0.6*gauss(vRng)));
+        const lead = k % 5;
+        const raw = rawNWP(d, dDoy, lead, obs);
+        const posterior = regimePosterior(d, dDoy, lead);
+        let bR = REGIMES[0], bP = -1;
+        for(const r of REGIMES){ if(posterior[r] > bP){ bP = posterior[r]; bR = r; } }
+        const conf = clamp(bP, 0, 1);
+        const rec = {date, districtId:d.id, obs, raw, regime:bR, confidence:conf, lead, byChain:{}};
+        for(const ch of chains) rec.byChain[ch] = applyCorrection(raw, bR, conf, d, ch);
+        archive.push(rec);
+      }
+    }
+
+    return { issue, doy, forecast, archive, chains, source: SOURCES.SYNTHETIC, generatedAt: new Date() };
+  }
+
+  return {
+    get(force){
+      if(!cache || force){ rng = mulberry32(SYNTH_SEED); cache = build(); }
+      return cache;
+    },
+    reset(){ cache = null; }
+  };
+})();
+
+/* ---------------- verification metrics ---------------- */
+
+const Metrics = {
+  mae(f,o){ const n=Math.min(f.length,o.length); let s=0; for(let i=0;i<n;i++) s+=Math.abs(f[i]-o[i]); return s/n; },
+  rmse(f,o){ const n=Math.min(f.length,o.length); let s=0; for(let i=0;i<n;i++) s+=(f[i]-o[i])**2; return Math.sqrt(s/n); },
+  bias(f,o){ const n=Math.min(f.length,o.length); let s=0; for(let i=0;i<n;i++) s+=(f[i]-o[i]); return s/n; },
+  corr(f,o){ return pearson(f,o); },
+  contingency(f,o,thr){
+    let H=0,M=0,F=0,C=0;
+    const n = Math.min(f.length,o.length);
+    for(let i=0;i<n;i++){
+      const fh = f[i]>=thr, oh = o[i]>=thr;
+      if(fh&&oh) H++; else if(!fh&&oh) M++; else if(fh&&!oh) F++; else C++;
+    }
+    return {H,M,F,C,n};
+  },
+  csi(c){ const d=c.H+c.M+c.F; return d? c.H/d : NaN; },
+  pod(c){ const d=c.H+c.M; return d? c.H/d : NaN; },
+  far(c){ const d=c.H+c.F; return d? c.F/d : NaN; },
+  fbi(c){ const d=c.H+c.M; return d? (c.H+c.F)/d : NaN; },
+  brier(probs,obs,thr){
+    const n = Math.min(probs.length,obs.length);
+    let s=0; for(let i=0;i<n;i++){ const o = obs[i]>=thr ? 1 : 0; s += (probs[i]-o)**2; }
+    return s/n;
+  }
+};
+
+/* ---------------- application state ---------------- */
+
+const State = {
+  tab:"overview",
+  data:null,
+  activeSource:"SYNTHETIC",
+  dayIdx:0,
+  threshold:64.5,
+  regimeFilter:"all",
+  selectedDistrict:null,
+  mapLayer:"corr",
+  mapDay:0,
+  refreshTimer:null,
+  lastUpdated:null,
+  uploads:[],
+  qcResult:null,
+  animTimer:null,
+  log:[],
+  verThrValue:64.5
+};
+
+function logEvent(kind, msg){
+  State.log.unshift({t:new Date(), kind, msg});
+  if(State.log.length > 200) State.log.pop();
+  renderSystemLog();
+}
+
+/* ---------------- chart registry ---------------- */
+
+const Charts = {};
+function mkChart(id, cfg){
+  if(Charts[id]){ Charts[id].destroy(); }
+  const el = document.getElementById(id);
+  if(!el) return null;
+  Charts[id] = new Chart(el.getContext("2d"), cfg);
+  return Charts[id];
+}
+Chart.defaults.color = "#a8b8d8";
+Chart.defaults.font.family = "Inter, system-ui, sans-serif";
+Chart.defaults.font.size = 11;
+Chart.defaults.plugins.legend.labels.boxWidth = 12;
+Chart.defaults.plugins.legend.labels.padding = 12;
+Chart.defaults.plugins.tooltip.backgroundColor = "rgba(11,20,40,.96)";
+Chart.defaults.plugins.tooltip.borderColor = "#27395e";
+Chart.defaults.plugins.tooltip.borderWidth = 1;
+Chart.defaults.plugins.tooltip.padding = 10;
+Chart.defaults.plugins.tooltip.titleColor = "#e8eefc";
+Chart.defaults.plugins.tooltip.bodyColor = "#a8b8d8";
+const GRID = {color:"rgba(30,48,84,.75)", drawBorder:false};
+
+/* ---------------- colour scales ---------------- */
+
+const RAIN_RAMP = [
+  [0.00,"#1b2a4a"],[0.08,"#2c4875"],[0.20,"#3f6fa8"],
+  [0.35,"#3f9b8e"],[0.50,"#6cbf6c"],[0.65,"#b8d24a"],
+  [0.80,"#f2c14e"],[0.92,"#f08a3c"],[1.00,"#e05252"]
+];
+function hexToRgb(h){ return [parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)]; }
+function lerpHex(a, b, t){
+  const A = hexToRgb(a), B = hexToRgb(b);
+  t = clamp(t, 0, 1);
+  return `rgb(${Math.round(A[0]+(B[0]-A[0])*t)},${Math.round(A[1]+(B[1]-A[1])*t)},${Math.round(A[2]+(B[2]-A[2])*t)})`;
+}
+function rampColor(t){
+  t = clamp(t,0,1);
+  for(let i=0;i<RAIN_RAMP.length-1;i++){
+    const [p0,c0] = RAIN_RAMP[i], [p1,c1] = RAIN_RAMP[i+1];
+    if(t>=p0 && t<=p1){
+      const f = (t-p0)/(p1-p0||1);
+      const a = hexToRgb(c0), b = hexToRgb(c1);
+      return `rgb(${Math.round(a[0]+(b[0]-a[0])*f)},${Math.round(a[1]+(b[1]-a[1])*f)},${Math.round(a[2]+(b[2]-a[2])*f)})`;
+    }
+  }
+  return RAIN_RAMP[RAIN_RAMP.length-1][1];
+}
+function probColor(p){ return rampColor(0.12 + 0.88*clamp(p,0,1)); }
+
+/* Diverging scale for the correction-magnitude layer.
+   Positive (rainfall increased by the post-processor) → green.
+   Negative (rainfall reduced)                         → red. */
+const DELTA_SPAN = 40; // ±40 %
+function divergingColor(v, span){
+  const t = clamp((v||0)/(span||DELTA_SPAN), -1, 1);
+  if(t >= 0) return lerpHex("#12402f", "#3ddc97", t);
+  return lerpHex("#421f2b", "#ff6b6b", -t);
+}
+
+const REGIME_COLOR = {
+  "Active Monsoon":"#3ddc97", "Break Monsoon":"#ffc857", "Low Pressure":"#ff6b6b",
+  "Coastal":"#4fd8e8", "Orographic":"#b18cff", "Western Disturbance":"#4da3ff"
+};
+
+/* ---------------- derived selectors ---------------- */
+
+function getData(){ return State.data; }
+function forecastFor(dayIdx){ return State.data.forecast.filter(r => r.dayIdx === dayIdx); }
+function districtById(id){ return DISTRICTS.find(d => d.id === id); }
+function archiveFor(districtId){ return State.data.archive.filter(r => r.districtId === districtId); }
+function allStates(){ return [...new Set(DISTRICTS.map(d=>d.state))].sort(); }
+
+function topDistricts(dayIdx, n){
+  const rows = forecastFor(dayIdx).map(r => {
+    const d = districtById(r.districtId);
+    return {
+      name:d.name, state:d.state, regime:r.regime, conf:r.confidence,
+      raw:r.raw, corr:r.corr, delta:(r.corr-r.raw)/(r.raw||1),
+      pHeavy: exceedanceProb(r.ens, State.threshold),
+      districtId:r.districtId
+    };
+  });
+  rows.sort((a,b)=>b.corr-a.corr);
+  return rows.slice(0,n);
+}
+
+function exceedanceProb(ensemble, thr){
+  if(!ensemble || !ensemble.length) return NaN;
+  return ensemble.filter(v => v >= thr).length / ensemble.length;
+}
+
+/* ---------------- rendering: overview ---------------- */
+
+function renderOverview(){
+  const d = State.data;
+  const rows = forecastFor(State.dayIdx);
+
+  document.getElementById("ovIssueTag").textContent =
+    "issue " + d.issue.toISOString().replace("T"," ").slice(0,16) + " UTC";
+  document.getElementById("ovDayTag").textContent =
+    "day +" + State.dayIdx + " · " + dayLabel(rows[0].date);
+
+  const mRaw  = mean(rows.map(r=>r.raw));
+  const mCorr = mean(rows.map(r=>r.corr));
+  const mObs  = mean(rows.map(r=>r.truth));
+  const nHeavy = rows.filter(r => exceedanceProb(r.ens, State.threshold) >= 0.4).length;
+  const dPct = (mCorr - mRaw)/(mRaw||1);
+
+  document.getElementById("kpiRow").innerHTML = `
+    <div class="kpi k-raw">
+      <div class="lbl">Raw NWP · domain mean</div>
+      <div class="val">${fmt(mRaw)}<span class="unit">mm/day</span></div>
+      <div class="meta">Uncalibrated model field</div>
+    </div>
+    <div class="kpi k-ai">
+      <div class="lbl">AI-corrected · domain mean</div>
+      <div class="val">${fmt(mCorr)}<span class="unit">mm/day</span></div>
+      <div class="meta">Δ ${pct(dPct)} vs raw</div>
+    </div>
+    <div class="kpi k-obs">
+      <div class="lbl">Generator truth (synthetic)</div>
+      <div class="val">${fmt(mObs)}<span class="unit">mm/day</span></div>
+      <div class="meta">Not an observation — engine ground truth</div>
+    </div>
+    <div class="kpi k-risk">
+      <div class="lbl">Districts ≥ 40% P(&gt;${fmt(State.threshold,1)} mm)</div>
+      <div class="val">${nHeavy}<span class="unit">/ ${rows.length}</span></div>
+      <div class="meta">Ensemble exceedance probability</div>
+    </div>`;
+
+  const days = [...Array(FORECAST_DAYS).keys()];
+  const labels = days.map(k => "D+" + k + "  " + dayLabel(forecastFor(k)[0].date));
+  const sRaw = days.map(k => mean(forecastFor(k).map(r=>r.raw)));
+  const sCorr= days.map(k => mean(forecastFor(k).map(r=>r.corr)));
+  const sTruth=days.map(k => mean(forecastFor(k).map(r=>r.truth)));
+  const sP10 = days.map(k => mean(forecastFor(k).map(r=>quantile([...r.ens].sort((a,b)=>a-b),0.10))));
+  const sP90 = days.map(k => mean(forecastFor(k).map(r=>quantile([...r.ens].sort((a,b)=>a-b),0.90))));
+
+  mkChart("chForecast", {
+    type:"line",
+    data:{
+      labels,
+      datasets:[
+        {label:"P10–P90 band", data:sP90, borderColor:"transparent",
+         backgroundColor:"rgba(61,220,151,.12)", fill:"-1", pointRadius:0, tension:.3},
+        {label:"P10", data:sP10, borderColor:"transparent", pointRadius:0, fill:false},
+        {label:"AI-corrected", data:sCorr, borderColor:"#3ddc97", backgroundColor:"#3ddc97",
+         borderWidth:2.2, tension:.3, pointRadius:4, pointHoverRadius:6},
+        {label:"Raw NWP", data:sRaw, borderColor:"#6f83a8", backgroundColor:"#6f83a8",
+         borderWidth:1.8, borderDash:[5,4], tension:.3, pointRadius:3},
+        {label:"Generator truth (synthetic)", data:sTruth, borderColor:"#4fd8e8",
+         backgroundColor:"#4fd8e8", borderWidth:1.4, borderDash:[2,3], tension:.3, pointRadius:2}
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:"index", intersect:false},
+      scales:{
+        y:{grid:GRID, title:{display:true,text:"mm/day"}, beginAtZero:true},
+        x:{grid:{display:false}}
+      },
+      plugins:{legend:{position:"bottom"}}
+    }
+  });
+
+  const byRegime = {};
+  for(const r of REGIMES) byRegime[r] = [];
+  State.data.forecast.forEach(r => {
+    byRegime[r.regime].push((r.corr - r.raw)/(r.raw||1));
+  });
+  const regLabels = REGIMES.filter(r => byRegime[r].length);
+  const regVals = regLabels.map(r => mean(byRegime[r])*100);
+
+  mkChart("chRegimeCorr", {
+    type:"bar",
+    data:{
+      labels:regLabels.map(s=>s.replace(" ","\n")),
+      datasets:[{
+        label:"Mean correction (%)",
+        data:regVals,
+        backgroundColor:regLabels.map(r=>REGIME_COLOR[r]+"cc"),
+        borderColor:regLabels.map(r=>REGIME_COLOR[r]),
+        borderWidth:1, borderRadius:4
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false, indexAxis:"y",
+      scales:{ x:{grid:GRID, title:{display:true,text:"% change vs raw NWP"}}, y:{grid:{display:false}} },
+      plugins:{legend:{display:false}}
+    }
+  });
+
+  const edges = [0,1,2.5,5,10,20,35,50,75,100,150,200,300];
+  const hRaw = new Array(edges.length-1).fill(0);
+  const hCorr= new Array(edges.length-1).fill(0);
+  State.data.forecast.forEach(r => {
+    for(let i=0;i<edges.length-1;i++){ if(r.raw>=edges[i] && r.raw<edges[i+1]){ hRaw[i]++; break; } }
+    for(let i=0;i<edges.length-1;i++){ if(r.corr>=edges[i] && r.corr<edges[i+1]){ hCorr[i]++; break; } }
+  });
+  mkChart("chDist", {
+    type:"bar",
+    data:{
+      labels:edges.slice(0,-1).map((e,i)=>`${e}–${edges[i+1]}`),
+      datasets:[
+        {label:"Raw NWP", data:hRaw, backgroundColor:"rgba(111,131,168,.75)", borderRadius:3},
+        {label:"AI-corrected", data:hCorr, backgroundColor:"rgba(61,220,151,.75)", borderRadius:3}
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      scales:{ y:{grid:GRID, title:{display:true,text:"district-days"}}, x:{grid:{display:false}} },
+      plugins:{legend:{position:"bottom"}}
+    }
+  });
+
+  renderTable(
+    document.querySelector("#ovTopTbl tbody"),
+    topDistricts(State.dayIdx, 12),
+    r => `<tr data-district="${r.districtId}">
+      <td>${r.name}</td>
+      <td class="muted">${r.state}</td>
+      <td><span class="chip ${REGIME_SHORT[r.regime]}">${r.regime}</span></td>
+      <td class="num">${fmt(r.conf*100,0)}%</td>
+      <td class="num">${fmt(r.raw)}</td>
+      <td class="num" style="color:#9ff0c6;font-weight:600">${fmt(r.corr)}</td>
+      <td class="num" style="color:${r.delta<0?'#ffb8b8':'#9ff0c6'}">${pct(r.delta)}</td>
+      <td class="num">${fmt(r.pHeavy*100,0)}%</td>
+    </tr>`
+  );
+  document.querySelectorAll("#ovTopTbl tbody tr").forEach(tr => {
+    tr.addEventListener("click", () => openDistrict(tr.dataset.district));
+  });
+}
+
+function renderTable(tbody, rows, rowFn){
+  tbody.innerHTML = rows.map(rowFn).join("") ||
+    `<tr><td colspan="12"><div class="empty">No rows match the current filters.</div></td></tr>`;
+}
+
+/* ==========================================================================
+   MAP
+   ==========================================================================
+   Rewritten for robustness:
+     • Leaflet is created exactly once and reused; sizes are invalidated on
+       every tab activation and via ResizeObserver.
+     • Three basemaps with an automatic fallback if a tile provider fails.
+     • Marker value → colour mapping is shared with the legend, so the scale
+       on screen always matches the dots on the map.
+     • Marker radius uses a √-scale (area ∝ value) and can never be NaN.
+     • Markers live in a LayerGroup which is cleared on every redraw.
+   ========================================================================== */
+
+const TILE_PROVIDERS = {
+  dark: {
+    url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+    opts: {
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors ' +
+        '&copy; <a href="https://carto.com/attributions">CARTO</a>',
+      subdomains: "abcd",
+      maxZoom: 19,
+      crossOrigin: true
+    }
+  },
+  satellite: {
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    opts: {
+      attribution: "Imagery &copy; Esri, Maxar, Earthstar Geographics, and the GIS User Community",
+      maxZoom: 18
+    }
+  },
+  streets: {
+    url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    opts: {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      maxZoom: 19
+    }
+  }
+};
+
+const MAP_LAYER_META = {
+  raw:     {kind:"rain",        unit:"mm/day", label:"Raw NWP rainfall"},
+  corr:    {kind:"rain",        unit:"mm/day", label:"AI-corrected rainfall"},
+  obs:     {kind:"rain",        unit:"mm/day", label:"Observed rainfall"},
+  delta:   {kind:"diverging",   unit:"%",      label:"Correction magnitude"},
+  pheavy:  {kind:"prob",        unit:"%",      label:"Heavy-rain probability"},
+  regime:  {kind:"categorical", unit:"",       label:"Weather regime class"}
+};
+
+let map = null;
+let baseLayer = null;
+let markerLayer = null;
+let mapResizeObserver = null;
+let mapTileErrors = 0;
+let mapMarkers = [];
+let mapLegendMax = 100;
+
+function initMap(){
+  const el = document.getElementById("map");
+  if(!el) return false;
+
+  if(map) return true;
+
+  if(typeof window.L === "undefined" || !window.L || !window.L.map){
+    el.classList.add("map-unavailable");
+    el.textContent = "Map library (Leaflet) failed to load. Check network access to unpkg.com and reload.";
+    logEvent("bad", "Leaflet unavailable — map disabled");
+    return false;
+  }
+
+  el.classList.remove("map-unavailable");
+  el.innerHTML = "";
+
+  map = L.map(el, {
+    zoomControl: true,
+    scrollWheelZoom: true,
+    preferCanvas: true,
+    attributionControl: true,
+    minZoom: 3,
+    maxZoom: 18,
+    worldCopyJump: false
+  });
+  map.setView([25.6, 92.5], 6);
+
+  markerLayer = L.layerGroup().addTo(map);
+
+  const initialBase = (document.getElementById("mapBase") || {}).value || "dark";
+  setBaseLayer(initialBase);
+
+  if(window.ResizeObserver){
+    if(mapResizeObserver) mapResizeObserver.disconnect();
+    mapResizeObserver = new ResizeObserver(() => {
+      if(map) map.invalidateSize();
+    });
+    mapResizeObserver.observe(el);
+  }
+
+  map.whenReady(() => { if(map) map.invalidateSize(); });
+  logEvent("ok", "Map initialised (Leaflet)");
+  return true;
+}
+
+function setBaseLayer(key){
+  if(!map) return;
+  const prov = TILE_PROVIDERS[key] || TILE_PROVIDERS.dark;
+
+  if(baseLayer){
+    try { map.removeLayer(baseLayer); } catch(e){}
+    baseLayer = null;
+  }
+  mapTileErrors = 0;
+
+  const layer = L.tileLayer(prov.url, prov.opts);
+  layer.on("tileerror", () => {
+    mapTileErrors++;
+    if(mapTileErrors === 4 && baseLayer === layer && key !== "streets"){
+      logEvent("warn", `Basemap "${key}" tiles are failing — falling back to OpenStreetMap.`);
+      setBaseLayer("streets");
+    }
+  });
+
+  layer.addTo(map);
+  baseLayer = layer;
+}
+
+/* Single source of truth for value → colour on the map. */
+function mapValueFor(rec){
+  switch(State.mapLayer){
+    case "raw":
+      return {v: rec.raw,  kind:"rain", color: rampColor(rec.raw / mapLegendMax)};
+    case "corr":
+      return {v: rec.corr, kind:"rain", color: rampColor(rec.corr / mapLegendMax)};
+    case "obs":
+      return {v: rec.truth, kind:"rain", color: rampColor(rec.truth / mapLegendMax)};
+    case "delta": {
+      const dd = ((rec.corr - rec.raw) / (rec.raw || 1)) * 100;
+      return {v: dd, kind:"diverging", color: divergingColor(dd, DELTA_SPAN)};
+    }
+    case "pheavy": {
+      const p = exceedanceProb(rec.ens, State.threshold);
+      const pv = Number.isFinite(p) ? p : 0;
+      return {v: pv * 100, kind:"prob", color: probColor(pv)};
+    }
+    case "regime":
+      return {v: null, kind:"categorical", color: REGIME_COLOR[rec.regime] || "#6f83a8"};
+  }
+  return {v: rec.corr, kind:"rain", color: rampColor(rec.corr / mapLegendMax)};
+}
+
+/* Determine the scale maximum for the active layer, so that the legend and
+   the marker colours are always computed from the same number. */
+function computeMapScaleMax(rows){
+  const kind = MAP_LAYER_META[State.mapLayer].kind;
+
+  if(kind === "diverging") return DELTA_SPAN;
+  if(kind === "prob")      return 100;
+  if(kind === "categorical") return 1;
+
+  const vals = rows.map(r => r.raw !== undefined ? r[State.mapLayer === "obs" ? "truth" : State.mapLayer] : null)
+                   .filter(v => Number.isFinite(v))
+                   .sort((a,b)=>a-b);
+
+  const p95 = vals.length ? quantile(vals, 0.95) : 60;
+  return Math.max(25, Math.ceil(p95 / 10) * 10);
+}
+
+function renderMap(){
+  const section = document.querySelector('section[data-panel="map"]');
+  if(!section || section.classList.contains("hidden")) return;
+  if(!initMap() || !map) return;
+
+  map.invalidateSize();
+  drawMapMarkers();
+}
+
+function drawMapMarkers(){
+  if(!map || !markerLayer) return;
+
+  markerLayer.clearLayers();
+  mapMarkers = [];
+
+  const rows = State.data.forecast.filter(r => r.dayIdx === State.mapDay);
+  const scale = +document.getElementById("mapSize").value || 16;
+
+  mapLegendMax = computeMapScaleMax(rows);
+  const kind = MAP_LAYER_META[State.mapLayer].kind;
+
+  rows.forEach(r => {
+    const d = districtById(r.districtId);
+    if(!d || !Number.isFinite(d.lat) || !Number.isFinite(d.lon)) return;
+
+    const {v, color} = mapValueFor(r);
+
+    let norm = 0;
+    if(v != null && Number.isFinite(v) && mapLegendMax > 0){
+      norm = clamp(Math.abs(v) / mapLegendMax, 0, 1);
+    }
+    // √-scale so marker area grows linearly with the plotted value
+    const radius = 4 + Math.sqrt(norm) * scale;
+
+    const marker = L.circleMarker([d.lat, d.lon], {
+      radius,
+      color: "#0a1424",
+      weight: 1.2,
+      fillColor: color,
+      fillOpacity: 0.9
+    });
+
+    const p = [...r.ens].sort((a,b)=>a-b);
+    const p10 = quantile(p, 0.10);
+    const p90 = quantile(p, 0.90);
+    const pEx  = exceedanceProb(r.ens, State.threshold);
+
+    marker.bindPopup(`
+      <div style="min-width:230px">
+        <div style="font-weight:650;font-size:13.5px">${d.name}</div>
+        <div style="color:#6f83a8;font-size:11.5px;margin-bottom:7px">
+          ${d.state} · ${d.lat.toFixed(2)}°N ${d.lon.toFixed(2)}°E · ${d.elev} m
+        </div>
+        <div style="display:grid;grid-template-columns:auto auto;gap:3px 12px;font-size:12px">
+          <span style="color:#6f83a8">Regime</span>
+          <span><span class="chip ${REGIME_SHORT[r.regime]}">${r.regime}</span></span>
+          <span style="color:#6f83a8">Confidence</span>
+          <span class="mono">${fmt(r.confidence*100,0)}%</span>
+          <span style="color:#6f83a8">Raw NWP</span>
+          <span class="mono">${fmt(r.raw)} mm</span>
+          <span style="color:#6f83a8">AI-corrected</span>
+          <span class="mono" style="color:#9ff0c6">${fmt(r.corr)} mm</span>
+          <span style="color:#6f83a8">Δ</span>
+          <span class="mono">${pct((r.corr-r.raw)/(r.raw||1))}</span>
+          <span style="color:#6f83a8">P10 – P90</span>
+          <span class="mono">${fmt(p10)} – ${fmt(p90)}</span>
+          <span style="color:#6f83a8">P(&gt;${fmt(State.threshold,0)}mm)</span>
+          <span class="mono">${fmt(pEx*100,0)}%</span>
+        </div>
+      </div>
+    `);
+
+    let tipText;
+    if(State.mapLayer === "regime"){
+      tipText = `${d.name} · ${r.regime}`;
+    } else if(kind === "diverging" || kind === "prob"){
+      tipText = `${d.name} · ${fmt(v)}%`;
+    } else {
+      tipText = `${d.name} · ${fmt(v)} mm`;
+    }
+    marker.bindTooltip(tipText, {direction:"top", offset:[0, -4]});
+
+    marker.on("click", () => { State.selectedDistrict = d.id; });
+
+    markerLayer.addLayer(marker);
+    mapMarkers.push(marker);
+  });
+
+  document.getElementById("mapCount").textContent = rows.length + " districts";
+  renderMapLegend();
+}
+
+function renderMapLegend(){
+  const el = document.getElementById("mapLegend");
+  if(!el) return;
+
+  const meta = MAP_LAYER_META[State.mapLayer];
+
+  if(meta.kind === "categorical"){
+    el.innerHTML = `<span class="muted">Regime:</span>` +
+      REGIMES.map(r => `<span><span class="sw" style="background:${REGIME_COLOR[r]}"></span>${r}</span>`).join("");
+    return;
+  }
+
+  const steps = 7;
+  let html = "";
+
+  if(meta.kind === "diverging"){
+    html += `<span class="muted">Correction (${meta.unit}) — green = increased, red = reduced:</span>`;
+    for(let i = 0; i < steps; i++){
+      const t = i / (steps - 1);
+      const val = -DELTA_SPAN + 2 * DELTA_SPAN * t;
+      html += `<span><span class="sw" style="background:${divergingColor(val, DELTA_SPAN)}"></span>${val > 0 ? "+" : ""}${val.toFixed(0)}</span>`;
+    }
+    el.innerHTML = html;
+    return;
+  }
+
+  html += `<span class="muted">${meta.label} (${meta.unit}):</span>`;
+  for(let i = 0; i < steps; i++){
+    const t = i / (steps - 1);
+    const val = mapLegendMax * t;
+    const col = (meta.kind === "prob") ? probColor(t) : rampColor(t);
+    html += `<span><span class="sw" style="background:${col}"></span>${val.toFixed(0)}</span>`;
+  }
+  el.innerHTML = html;
+}
+
+/* ---------------- rendering: districts ---------------- */
+
+function filteredDistrictRows(){
+  const q = document.getElementById("dSearch").value.trim().toLowerCase();
+  const st = document.getElementById("dState").value;
+  const rg = document.getElementById("dRegime").value;
+  const day = +document.getElementById("dDay").value;
+  const minMm = +document.getElementById("dMin").value || 0;
+
+  return State.data.forecast
+    .filter(r => r.dayIdx === day)
+    .map(r => {
+      const d = districtById(r.districtId);
+      const p = [...r.ens].sort((a,b)=>a-b);
+      const rec = archiveFor(r.districtId).find(a => a.date.getTime() === r.date.getTime());
+      return {
+        districtId:r.districtId, name:d.name, state:d.state, elev:d.elev,
+        regime:r.regime, conf:r.confidence,
+        raw:r.raw, corr:r.corr, delta:(r.corr-r.raw)/(r.raw||1),
+        obs: rec ? rec.obs : null,
+        p10:quantile(p,0.10), p90:quantile(p,0.90),
+        pHeavy:exceedanceProb(r.ens, State.threshold),
+        err: rec ? Math.abs(r.corr - rec.obs) : null,
+        rawErr: rec ? Math.abs(r.raw - rec.obs) : null
+      };
+    })
+    .filter(r => {
+      if(q && !(r.name.toLowerCase().includes(q) || r.state.toLowerCase().includes(q))) return false;
+      if(st !== "all" && r.state !== st) return false;
+      if(rg !== "all" && r.regime !== rg) return false;
+      if(r.corr < minMm) return false;
+      return true;
+    });
+}
+
+function renderDistrictTable(){
+  const rows = filteredDistrictRows();
+  document.getElementById("dCount").textContent = rows.length + " of " + DISTRICTS.length;
+
+  renderTable(document.querySelector("#distTbl tbody"), rows, r => `
+    <tr data-district="${r.districtId}" class="${State.selectedDistrict===r.districtId?'sel':''}">
+      <td>${r.name}</td>
+      <td class="muted">${r.state}</td>
+      <td><span class="chip ${REGIME_SHORT[r.regime]}">${r.regime}</span></td>
+      <td class="num">${fmt(r.conf*100,0)}%</td>
+      <td class="num">${fmt(r.raw)}</td>
+      <td class="num" style="color:#9ff0c6;font-weight:600">${fmt(r.corr)}</td>
+      <td class="num" style="color:${r.delta<0?'#ffb8b8':'#9ff0c6'}">${pct(r.delta,0)}</td>
+      <td class="num">${fmt(r.obs)}</td>
+      <td class="num muted">${fmt(r.p10)}</td>
+      <td class="num muted">${fmt(r.p90)}</td>
+      <td class="num">${fmt(r.pHeavy*100,0)}%</td>
+      <td class="num">${fmt(r.err)}</td>
+    </tr>`);
+
+  document.querySelectorAll("#distTbl tbody tr").forEach(tr => {
+    tr.addEventListener("click", () => openDistrict(tr.dataset.district));
+  });
+}
+
+function openDistrict(id){
+  State.selectedDistrict = id;
+  renderDistrictTable();
+  renderDistrictDetail();
+  document.getElementById("dxPanel").scrollIntoView({behavior:"smooth", block:"nearest"});
+}
+
+function renderDistrictDetail(){
+  const id = State.selectedDistrict;
+  const box = document.getElementById("dxBody");
+  if(!id){ box.innerHTML = `<div class="empty">Click any district row above to open the detail view.</div>`; return; }
+
+  const d = districtById(id);
+  document.getElementById("dxName").textContent = d.name + " · " + d.state;
+
+  const series = State.data.forecast.filter(r => r.districtId === id).sort((a,b)=>a.dayIdx-b.dayIdx);
+  const hist = archiveFor(id).slice(-90);
+  const cur = series[State.dayIdx] || series[0];
+
+  const obsArr = hist.map(h=>h.obs);
+  const rawArr = hist.map(h=>h.raw);
+  const corArr = hist.map(h=>h.byChain.regime_adaptive);
+  const thr = State.threshold;
+  const cRaw = Metrics.contingency(rawArr, obsArr, thr);
+  const cCor = Metrics.contingency(corArr, obsArr, thr);
+
+  const uncP = [...cur.ens].sort((a,b)=>a-b);
+
+  box.innerHTML = `
+    <div class="grid g4" style="margin-bottom:14px">
+      <div class="kpi"><div class="lbl">Regime (day +${cur.dayIdx})</div>
+        <div class="val" style="font-size:17px"><span class="chip ${REGIME_SHORT[cur.regime]}">${cur.regime}</span></div>
+        <div class="meta">confidence ${fmt(cur.confidence*100,0)}%</div></div>
+      <div class="kpi k-raw"><div class="lbl">Raw NWP</div>
+        <div class="val">${fmt(cur.raw)}<span class="unit">mm</span></div>
+        <div class="meta">elev ${d.elev} m · oro ${d.oro.toFixed(2)}</div></div>
+      <div class="kpi k-ai"><div class="lbl">AI-corrected</div>
+        <div class="val">${fmt(cur.corr)}<span class="unit">mm</span></div>
+        <div class="meta">Δ ${pct((cur.corr-cur.raw)/(cur.raw||1))}</div></div>
+      <div class="kpi k-risk"><div class="lbl">P(&gt;${fmt(thr,0)} mm)</div>
+        <div class="val">${fmt(exceedanceProb(cur.ens,thr)*100,0)}<span class="unit">%</span></div>
+        <div class="meta">P10–P90: ${fmt(quantile(uncP,.1))}–${fmt(quantile(uncP,.9))} mm</div></div>
+    </div>
+
+    <div class="grid g2">
+      <div>
+        <h3 style="font-size:12px;color:#6f83a8;text-transform:uppercase;letter-spacing:.5px;margin:0 0 8px">Forecast timeline</h3>
+        <div class="chart-box short"><canvas id="chDxTime"></canvas></div>
+      </div>
+      <div>
+        <h3 style="font-size:12px;color:#6f83a8;text-transform:uppercase;letter-spacing:.5px;margin:0 0 8px">Historical daily rainfall (last 90 d, synthetic)</h3>
+        <div class="chart-box short"><canvas id="chDxHist"></canvas></div>
+      </div>
+    </div>
+
+    <hr class="sep"/>
+
+    <div class="grid g3">
+      <div>
+        <h3 style="font-size:12px;color:#6f83a8;text-transform:uppercase;letter-spacing:.5px;margin:0 0 8px">Historical statistics (90 d)</h3>
+        <div class="tbl-wrap" style="max-height:none"><table>
+          <tbody>
+            <tr><td class="muted">Mean observed</td><td class="num">${fmt(mean(obsArr))} mm</td></tr>
+            <tr><td class="muted">Std dev</td><td class="num">${fmt(stdev(obsArr))} mm</td></tr>
+            <tr><td class="muted">Max observed</td><td class="num">${fmt(Math.max(...obsArr))} mm</td></tr>
+            <tr><td class="muted">Rain days (≥2.5)</td><td class="num">${obsArr.filter(v=>v>=2.5).length}</td></tr>
+            <tr><td class="muted">Heavy days (≥64.5)</td><td class="num">${obsArr.filter(v=>v>=64.5).length}</td></tr>
+            <tr><td class="muted">Extreme days (≥204.5)</td><td class="num">${obsArr.filter(v=>v>=204.5).length}</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+      <div>
+        <h3 style="font-size:12px;color:#6f83a8;text-transform:uppercase;letter-spacing:.5px;margin:0 0 8px">Verification @ ${fmt(thr,1)} mm</h3>
+        <div class="tbl-wrap" style="max-height:none"><table>
+          <thead><tr><th>Metric</th><th class="num">Raw</th><th class="num">Corrected</th></tr></thead>
+          <tbody>
+            <tr><td class="muted">MAE</td><td class="num">${fmt(Metrics.mae(rawArr,obsArr))}</td><td class="num">${fmt(Metrics.mae(corArr,obsArr))}</td></tr>
+            <tr><td class="muted">RMSE</td><td class="num">${fmt(Metrics.rmse(rawArr,obsArr))}</td><td class="num">${fmt(Metrics.rmse(corArr,obsArr))}</td></tr>
+            <tr><td class="muted">Bias</td><td class="num">${fmt(Metrics.bias(rawArr,obsArr))}</td><td class="num">${fmt(Metrics.bias(corArr,obsArr))}</td></tr>
+            <tr><td class="muted">CSI</td><td class="num">${fmt(Metrics.csi(cRaw),2)}</td><td class="num">${fmt(Metrics.csi(cCor),2)}</td></tr>
+            <tr><td class="muted">POD</td><td class="num">${fmt(Metrics.pod(cRaw),2)}</td><td class="num">${fmt(Metrics.pod(cCor),2)}</td></tr>
+            <tr><td class="muted">FAR</td><td class="num">${fmt(Metrics.far(cRaw),2)}</td><td class="num">${fmt(Metrics.far(cCor),2)}</td></tr>
+            <tr><td class="muted">FBI</td><td class="num">${fmt(Metrics.fbi(cRaw),2)}</td><td class="num">${fmt(Metrics.fbi(cCor),2)}</td></tr>
+          </tbody>
+        </table></div>
+        <p class="muted" style="font-size:11px;margin-top:7px">n = ${obsArr.length} district-days. Synthetic archive — indicative only.</p>
+      </div>
+      <div>
+        <h3 style="font-size:12px;color:#6f83a8;text-transform:uppercase;letter-spacing:.5px;margin:0 0 8px">Regime posterior (day +${cur.dayIdx})</h3>
+        <div class="tbl-wrap" style="max-height:none"><table>
+          <thead><tr><th>Regime</th><th class="num">P</th></tr></thead>
+          <tbody>${REGIMES.map(r=>`<tr>
+            <td><span class="chip ${REGIME_SHORT[r]}">${r}</span></td>
+            <td class="num">${fmt(cur.posterior[r]*100,1)}%</td></tr>`).join("")}
+          </tbody>
+        </table></div>
+      </div>
+    </div>`;
+
+  mkChart("chDxTime", {
+    type:"line",
+    data:{
+      labels:series.map(r=>"D+"+r.dayIdx),
+      datasets:[
+        {label:"P10–P90", data:series.map(r=>quantile([...r.ens].sort((a,b)=>a-b),0.9)),
+         borderColor:"transparent", backgroundColor:"rgba(61,220,151,.13)", fill:"-1", pointRadius:0},
+        {label:"P10", data:series.map(r=>quantile([...r.ens].sort((a,b)=>a-b),0.1)),
+         borderColor:"transparent", pointRadius:0, fill:false},
+        {label:"AI-corrected", data:series.map(r=>r.corr), borderColor:"#3ddc97", borderWidth:2.2, tension:.3, pointRadius:4},
+        {label:"Raw NWP", data:series.map(r=>r.raw), borderColor:"#6f83a8", borderDash:[5,4], borderWidth:1.7, tension:.3, pointRadius:3},
+        {label:"Truth (synthetic)", data:series.map(r=>r.truth), borderColor:"#4fd8e8", borderDash:[2,3], borderWidth:1.3, tension:.3, pointRadius:2}
+      ]
+    },
+    options:{responsive:true, maintainAspectRatio:false,
+      scales:{y:{grid:GRID, beginAtZero:true, title:{display:true,text:"mm/day"}}, x:{grid:{display:false}}},
+      plugins:{legend:{position:"bottom", labels:{boxWidth:10, padding:9}}}}
+  });
+
+  mkChart("chDxHist", {
+    type:"bar",
+    data:{
+      labels:hist.map(h=>dayLabel(h.date)),
+      datasets:[
+        {label:"Observed (synthetic)", data:hist.map(h=>h.obs),
+         backgroundColor:hist.map(h=>rampColor(h.obs/150)), borderRadius:2},
+        {label:"Corrected", type:"line", data:hist.map(h=>h.byChain.regime_adaptive),
+         borderColor:"#3ddc97", borderWidth:1.4, pointRadius:0, tension:.25}
+      ]
+    },
+    options:{responsive:true, maintainAspectRatio:false,
+      scales:{y:{grid:GRID, beginAtZero:true, title:{display:true,text:"mm/day"}},
+              x:{grid:{display:false}, ticks:{maxTicksLimit:12}}},
+      plugins:{legend:{position:"bottom", labels:{boxWidth:10, padding:9}}}}
+  });
+}
+
+/* ---------------- rendering: verification ---------------- */
+
+function chainMetrics(){
+  const A = State.data.archive;
+  const obs = A.map(r=>r.obs);
+  const out = {};
+  for(const ch of State.data.chains){
+    const f = A.map(r=>r.byChain[ch]);
+    const c = Metrics.contingency(f, obs, State.verThrValue);
+    out[ch] = {
+      n:A.length,
+      mae:Metrics.mae(f,obs), rmse:Metrics.rmse(f,obs), bias:Metrics.bias(f,obs),
+      r:Metrics.corr(f,obs),
+      csi:Metrics.csi(c), pod:Metrics.pod(c), far:Metrics.far(c), fbi:Metrics.fbi(c),
+      brier:Metrics.brier(A.map(r=>clamp(r.byChain[ch]/(State.verThrValue*2),0,1)), obs, State.verThrValue)
+    };
+  }
+  return out;
+}
+
+const CHAIN_LABEL = {
+  raw_baseline:"Raw NWP (baseline)",
+  stat_bias:"Statistical bias correction",
+  quantile_map:"Quantile mapping",
+  regime_rule:"Regime-rule correction",
+  regime_adaptive:"Regime-adaptive (deployed)"
+};
+
+function renderVerification(){
+  const A = State.data.archive;
+  const dates = A.map(r=>r.date.getTime());
+  const p0 = new Date(Math.min(...dates)), p1 = new Date(Math.max(...dates));
+
+  document.getElementById("verPeriod").textContent = `${isoDate(p0)} → ${isoDate(p1)} (90 days)`;
+  document.getElementById("verN").textContent = A.length.toLocaleString();
+  document.getElementById("verSrc").textContent = "Synthetic generator archive (NOT IMD)";
+  document.getElementById("verTag").textContent = "synthetic archive";
+  document.getElementById("verDesc").innerHTML =
+    "All statistics below are computed from the <b>synthetic verification archive</b> produced by this build's generator. " +
+    "They describe how the correction chains behave on that generated data and carry <b>no information about real forecast skill</b>.";
+
+  const M = chainMetrics();
+  const raw = M.raw_baseline, dep = M.regime_adaptive;
+
+  document.getElementById("verKpis").innerHTML = `
+    <div class="kpi k-raw"><div class="lbl">Raw NWP MAE</div>
+      <div class="val">${fmt(raw.mae,2)}<span class="unit">mm</span></div>
+      <div class="meta">Bias ${fmt(raw.bias,2)} mm</div></div>
+    <div class="kpi k-ai"><div class="lbl">Corrected MAE</div>
+      <div class="val">${fmt(dep.mae,2)}<span class="unit">mm</span></div>
+      <div class="meta">${dep.mae<raw.mae?'−':'+'}${fmt(Math.abs(dep.mae-raw.mae),2)} mm vs raw</div></div>
+    <div class="kpi k-obs"><div class="lbl">Correlation (corrected)</div>
+      <div class="val">${fmt(dep.r,3)}</div>
+      <div class="meta">raw r = ${fmt(raw.r,3)}</div></div>
+    <div class="kpi k-risk"><div class="lbl">CSI @ ${fmt(State.verThrValue,1)} mm</div>
+      <div class="val">${fmt(dep.csi,3)}</div>
+      <div class="meta">raw CSI = ${fmt(raw.csi,3)}</div></div>`;
+
+  const keys = State.data.chains;
+  mkChart("chVerBar", {
+    type:"bar",
+    data:{
+      labels:keys.map(k=>CHAIN_LABEL[k].replace(/ \(.*\)/,"")),
+      datasets:[
+        {label:"MAE (mm)", data:keys.map(k=>M[k].mae), backgroundColor:"rgba(77,163,255,.75)", borderRadius:4},
+        {label:"RMSE (mm)", data:keys.map(k=>M[k].rmse), backgroundColor:"rgba(177,140,255,.7)", borderRadius:4},
+        {label:"|Bias| (mm)", data:keys.map(k=>Math.abs(M[k].bias)), backgroundColor:"rgba(255,200,87,.7)", borderRadius:4}
+      ]
+    },
+    options:{responsive:true, maintainAspectRatio:false,
+      scales:{y:{grid:GRID, beginAtZero:true, title:{display:true,text:"mm/day"}}, x:{grid:{display:false}}},
+      plugins:{legend:{position:"bottom"}}}
+  });
+
+  mkChart("chVerSkill", {
+    type:"bar",
+    data:{
+      labels:keys.map(k=>CHAIN_LABEL[k].replace(/ \(.*\)/,"")),
+      datasets:[
+        {label:"CSI", data:keys.map(k=>M[k].csi), backgroundColor:"rgba(61,220,151,.78)", borderRadius:4},
+        {label:"POD", data:keys.map(k=>M[k].pod), backgroundColor:"rgba(79,216,232,.72)", borderRadius:4},
+        {label:"FAR (lower better)", data:keys.map(k=>M[k].far), backgroundColor:"rgba(255,107,107,.72)", borderRadius:4},
+        {label:"FBI (1 ideal)", data:keys.map(k=>M[k].fbi), backgroundColor:"rgba(255,200,87,.72)", borderRadius:4}
+      ]
+    },
+    options:{responsive:true, maintainAspectRatio:false,
+      scales:{y:{grid:GRID, beginAtZero:true}, x:{grid:{display:false}}},
+      plugins:{legend:{position:"bottom"}}}
+  });
+
+  document.querySelector("#verTbl tbody").innerHTML = keys.map(k=>{
+    const m = M[k];
+    return `<tr>
+      <td>${CHAIN_LABEL[k]}</td>
+      <td class="num">${m.n.toLocaleString()}</td>
+      <td class="num">${fmt(m.mae,3)}</td>
+      <td class="num">${fmt(m.rmse,3)}</td>
+      <td class="num">${fmt(m.bias,3)}</td>
+      <td class="num">${fmt(m.r,3)}</td>
+      <td class="num">${fmt(m.csi,3)}</td>
+      <td class="num">${fmt(m.pod,3)}</td>
+      <td class="num">${fmt(m.far,3)}</td>
+      <td class="num">${fmt(m.fbi,3)}</td>
+      <td class="num">${fmt(m.brier,4)}</td>
+    </tr>`;
+  }).join("");
+
+  const leads = [0,1,2,3,4];
+  mkChart("chLead", {
+    type:"line",
+    data:{
+      labels:leads.map(l=>"Lead +"+l+" d"),
+      datasets:[
+        {label:"Raw NWP MAE", data:leads.map(l=>{
+          const sub = A.filter(r=>r.lead===l);
+          return Metrics.mae(sub.map(r=>r.raw), sub.map(r=>r.obs));
+        }), borderColor:"#6f83a8", borderDash:[5,4], borderWidth:1.9, tension:.3, pointRadius:4},
+        {label:"Corrected MAE", data:leads.map(l=>{
+          const sub = A.filter(r=>r.lead===l);
+          return Metrics.mae(sub.map(r=>r.byChain.regime_adaptive), sub.map(r=>r.obs));
+        }), borderColor:"#3ddc97", borderWidth:2.2, tension:.3, pointRadius:4}
+      ]
+    },
+    options:{responsive:true, maintainAspectRatio:false,
+      scales:{y:{grid:GRID, beginAtZero:true, title:{display:true,text:"MAE (mm/day)"}}, x:{grid:{display:false}}},
+      plugins:{legend:{position:"bottom"}}}
+  });
+
+  const regs = REGIMES.filter(r => A.some(a=>a.regime===r));
+  mkChart("chRegVer", {
+    type:"bar",
+    data:{
+      labels:regs.map(r=>r.replace(" ","\n")),
+      datasets:[
+        {label:"Raw MAE", data:regs.map(r=>{
+          const s = A.filter(a=>a.regime===r);
+          return s.length ? Metrics.mae(s.map(a=>a.raw), s.map(a=>a.obs)) : null;
+        }), backgroundColor:"rgba(111,131,168,.8)", borderRadius:4},
+        {label:"Corrected MAE", data:regs.map(r=>{
+          const s = A.filter(a=>a.regime===r);
+          return s.length ? Metrics.mae(s.map(a=>a.byChain.regime_adaptive), s.map(a=>a.obs)) : null;
+        }), backgroundColor:"rgba(61,220,151,.8)", borderRadius:4}
+      ]
+    },
+    options:{responsive:true, maintainAspectRatio:false,
+      scales:{y:{grid:GRID, beginAtZero:true, title:{display:true,text:"MAE (mm/day)"}}, x:{grid:{display:false}}},
+      plugins:{legend:{position:"bottom"}}}
+  });
+
+  renderReliability();
+}
+
+function renderReliability(){
+  const A = State.data.archive;
+  const thr = State.verThrValue;
+  const bins = 10;
+  const sum = new Array(bins).fill(0), cnt = new Array(bins).fill(0), obsSum = new Array(bins).fill(0);
+
+  for(const r of A){
+    const spread = Math.max(6, 0.35*r.byChain.regime_adaptive + 5);
+    const z = (r.byChain.regime_adaptive - thr) / spread;
+    const p = 1/(1+Math.exp(-1.6*z));
+    const b = clamp(Math.floor(p*bins), 0, bins-1);
+    sum[b] += p; cnt[b]++; obsSum[b] += (r.obs >= thr ? 1 : 0);
+  }
+
+  const pts = [];
+  for(let b=0;b<bins;b++){
+    if(cnt[b] >= 8) pts.push({x:sum[b]/cnt[b], y:obsSum[b]/cnt[b], n:cnt[b]});
+  }
+
+  mkChart("chReliability", {
+    type:"scatter",
+    data:{
+      datasets:[
+        {label:"1:1 (perfect calibration)", data:[{x:0,y:0},{x:1,y:1}],
+         borderColor:"#6f83a8", borderDash:[5,4], borderWidth:1.4, pointRadius:0, showLine:true, fill:false},
+        {label:"Corrected forecast", data:pts,
+         backgroundColor:"#3ddc97", borderColor:"#0a1424", borderWidth:1.2,
+         pointRadius:6, pointHoverRadius:8}
+      ]
+    },
+    options:{responsive:true, maintainAspectRatio:false,
+      scales:{
+        x:{grid:GRID, min:0, max:1, title:{display:true,text:"Forecast probability"}},
+        y:{grid:GRID, min:0, max:1, title:{display:true,text:"Observed frequency"}}
+      },
+      plugins:{
+        legend:{position:"bottom"},
+        tooltip:{callbacks:{label:c=>`P_f=${c.raw.x.toFixed(3)} · P_o=${c.raw.y.toFixed(3)} · n=${c.raw.n}`}}
+      }}
+  });
+}
+
+/* ---------------- rendering: XAI ---------------- */
+
+function decomposeCorrection(rec, chain){
+  const d = districtById(rec.districtId);
+  const raw = rec.raw;
+  const c = REGIME_COEF[rec.regime];
+  const t = Math.tanh((raw - 25)/25);
+
+  const baseOut    = raw;
+  const scaleTerm  = raw * (c.scale - 1) * (1 + c.intensity*t);
+  const intTerm    = raw * c.scale * c.intensity * t;
+  const offTerm    = c.offset * (1 + c.oroGain * d.oro);
+  const blending   = chain === "regime_adaptive"
+    ? (rec.confidence * (baseOut + scaleTerm + intTerm + offTerm) + (1-rec.confidence)*(raw*0.93 - 0.6)) - (baseOut + scaleTerm + intTerm + offTerm)
+    : 0;
+
+  const total = rec.byChain[chain] - raw;
+
+  return [
+    {name:"Regime scale factor",       value:scaleTerm, color:"#4da3ff",
+     note:`scale = ${c.scale.toFixed(2)} (${rec.regime})`},
+    {name:"Intensity curvature",       value:intTerm,   color:"#b18cff",
+     note:`tanh((raw−25)/25) = ${t.toFixed(3)}`},
+    {name:"Regime offset",             value:offTerm,   color:"#4fd8e8",
+     note:`${c.offset.toFixed(2)} mm × (1 + ${c.oroGain.toFixed(2)}×${d.oro.toFixed(2)})`},
+    {name:"Confidence blending",       value:blending,  color:"#ffc857",
+     note: chain === "regime_adaptive"
+       ? `confidence ${(rec.confidence*100).toFixed(0)}% → weight on regime rule`
+       : "not applied in this chain"},
+    {name:"Residual (clipping at 0)",  value: total - (scaleTerm+intTerm+offTerm+blending), color:"#ff6b6b",
+     note:"non-negative clipping and floating-point residual"}
+  ];
+}
+
+function renderXAI(){
+  const distSel = document.getElementById("xaiDist");
+  const id = distSel.value || DISTRICTS[0].id;
+  const day = +document.getElementById("xaiDay").value;
+  const chain = document.getElementById("xaiModel").value;
+
+  const rec = State.data.forecast.find(r => r.districtId===id && r.dayIdx===day);
+  if(!rec) return;
+  const d = districtById(id);
+
+  const parts = decomposeCorrection(rec, chain);
+  const maxAbs = Math.max(...parts.map(p=>Math.abs(p.value)), 0.001);
+  document.getElementById("xaiDecomp").innerHTML = parts.map(p => `
+    <div class="decomp-row">
+      <span class="nm">${p.name}<br><small class="muted" style="font-size:10.5px">${p.note}</small></span>
+      <div class="bar" style="width:${Math.abs(p.value)/maxAbs*100}%;background:${p.color}"></div>
+      <span class="vl" style="color:${p.value<0?'#ffb8b8':'#9ff0c6'}">${p.value>=0?'+':''}${fmt(p.value,2)} mm</span>
+    </div>`).join("") + `
+    <div class="decomp-row" style="border-top:1px solid #27395e;margin-top:5px;font-weight:600">
+      <span class="nm">Total correction</span>
+      <span class="vl" style="color:#e8eefc">${(rec.byChain[chain]-rec.raw)>=0?'+':''}${fmt(rec.byChain[chain]-rec.raw,2)} mm</span>
+    </div>
+    <div class="decomp-row">
+      <span class="nm">Raw → corrected</span>
+      <span class="vl">${fmt(rec.raw,2)} → <b style="color:#9ff0c6">${fmt(rec.byChain[chain],2)}</b> mm (${pct((rec.byChain[chain]-rec.raw)/(rec.raw||1))})</span>
+    </div>`;
+
+  document.getElementById("xaiKpis").innerHTML = `
+    <div class="kpi"><div class="lbl">Regime</div>
+      <div class="val" style="font-size:15px"><span class="chip ${REGIME_SHORT[rec.regime]}">${rec.regime}</span></div>
+      <div class="meta">conf ${fmt(rec.confidence*100,0)}%</div></div>
+    <div class="kpi"><div class="lbl">Correction chain</div>
+      <div class="val" style="font-size:14px">${CHAIN_LABEL[chain]}</div>
+      <div class="meta">${chain}</div></div>
+    <div class="kpi"><div class="lbl">Top contributor</div>
+      <div class="val" style="font-size:14px">${[...parts].sort((a,b)=>Math.abs(b.value)-Math.abs(a.value))[0].name}</div>
+      <div class="meta">by |magnitude|</div></div>`;
+
+  const series = State.data.forecast.filter(r=>r.districtId===id).sort((a,b)=>a.dayIdx-b.dayIdx);
+  mkChart("chXaiTs", {
+    type:"bar",
+    data:{
+      labels:series.map(r=>"D+"+r.dayIdx),
+      datasets:[
+        {label:"Raw NWP", data:series.map(r=>r.raw),
+         backgroundColor:"rgba(111,131,168,.7)", borderRadius:3},
+        {label:"Corrected", data:series.map(r=>r.byChain[chain]),
+         backgroundColor:"rgba(61,220,151,.82)", borderRadius:3},
+        {label:"Correction (mm)", type:"line", data:series.map(r=>r.byChain[chain]-r.raw),
+         borderColor:"#ffc857", borderWidth:2, tension:.3, pointRadius:4, yAxisID:"y1"}
+      ]
+    },
+    options:{responsive:true, maintainAspectRatio:false,
+      scales:{
+        y:{grid:GRID, beginAtZero:true, title:{display:true,text:"mm/day"}},
+        y1:{position:"right", grid:{display:false}, title:{display:true,text:"Δ mm"}, ticks:{color:"#ffc857"}},
+        x:{grid:{display:false}}
+      },
+      plugins:{legend:{position:"bottom"}}}
+  });
+
+  const contributions = REGIMES.map(r => {
+    const c = REGIME_COEF[r];
+    const t = Math.tanh((rec.raw - 25)/25);
+    const v = rec.raw*c.scale*(1+c.intensity*t) + c.offset*(1+c.oroGain*d.oro) - rec.raw;
+    return {regime:r, value:v * rec.posterior[r], weight:rec.posterior[r]};
+  }).filter(c => c.weight > 0.001);
+
+  mkChart("chXaiRegime", {
+    type:"bar",
+    data:{
+      labels:contributions.map(c=>c.regime.replace(" ","\n")),
+      datasets:[{
+        label:"Probability-weighted contribution (mm)",
+        data:contributions.map(c=>c.value),
+        backgroundColor:contributions.map(c=>REGIME_COLOR[c.regime]+"cc"),
+        borderColor:contributions.map(c=>REGIME_COLOR[c.regime]),
+        borderWidth:1, borderRadius:4
+      }]
+    },
+    options:{responsive:true, maintainAspectRatio:false, indexAxis:"y",
+      scales:{x:{grid:GRID, title:{display:true,text:"mm/day"}}, y:{grid:{display:false}}},
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{afterLabel:c=>"posterior weight: "+fmt(contributions[c.dataIndex].weight*100,1)+"%"}}}}
+  });
+
+  const pert = [
+    {name:"Raw NWP ±10%", fn:delta => {
+      const v = rec.raw*(1+delta);
+      return applyChainTo(v, rec, chain) - rec.byChain[chain];
+    }, step:0.10},
+    {name:"Orographic factor ±20%", fn:delta => {
+      const c = REGIME_COEF[rec.regime];
+      const t = Math.tanh((rec.raw-25)/25);
+      const v = rec.raw*c.scale*(1+c.intensity*t) + c.offset*(1+c.oroGain*d.oro*(1+delta));
+      return Math.max(0,v) - rec.byChain[chain];
+    }, step:0.20},
+    {name:"Regime scale ±10%", fn:delta => {
+      const c = REGIME_COEF[rec.regime];
+      const t = Math.tanh((rec.raw-25)/25);
+      const v = rec.raw*c.scale*(1+delta)*(1+c.intensity*t) + c.offset*(1+c.oroGain*d.oro);
+      return Math.max(0,v) - rec.byChain[chain];
+    }, step:0.10},
+    {name:"Confidence ±25%", fn:delta => {
+      const c = REGIME_COEF[rec.regime];
+      const t = Math.tanh((rec.raw-25)/25);
+      const ro = rec.raw*c.scale*(1+c.intensity*t) + c.offset*(1+c.oroGain*d.oro);
+      const fb = rec.raw*0.93 - 0.6;
+      const conf = clamp(rec.confidence*(1+delta),0,1);
+      return Math.max(0, conf*ro + (1-conf)*fb) - rec.byChain[chain];
+    }, step:0.25}
+  ];
+  const sens = pert.map(p => ({name:p.name, plus:p.fn(+p.step), minus:p.fn(-p.step)}));
+
+  mkChart("chXaiSens", {
+    type:"bar",
+    data:{
+      labels:sens.map(s=>s.name.replace(/ /g,"\n")),
+      datasets:[
+        {label:"+perturbation", data:sens.map(s=>s.plus), backgroundColor:"rgba(77,163,255,.8)", borderRadius:4},
+        {label:"−perturbation", data:sens.map(s=>s.minus), backgroundColor:"rgba(255,107,107,.8)", borderRadius:4}
+      ]
+    },
+    options:{responsive:true, maintainAspectRatio:false,
+      scales:{y:{grid:GRID, title:{display:true,text:"Δ corrected rainfall (mm)"}}, x:{grid:{display:false}}},
+      plugins:{legend:{position:"bottom"}}}
+  });
+}
+
+function applyChainTo(raw, rec, chain){
+  const d = districtById(rec.districtId);
+  const c = REGIME_COEF[rec.regime];
+  if(chain==="raw_baseline") return raw;
+  if(chain==="stat_bias") return Math.max(0, raw*0.93 - 0.6);
+  if(chain==="quantile_map"){ const t=Math.tanh((raw-25)/25); return Math.max(0, raw*(0.95-0.10*t)); }
+  const t = Math.tanh((raw-25)/25);
+  const ro = raw*c.scale*(1+c.intensity*t) + c.offset*(1+c.oroGain*d.oro);
+  if(chain==="regime_rule") return Math.max(0, ro);
+  const fb = raw*0.93 - 0.6;
+  return Math.max(0, rec.confidence*ro + (1-rec.confidence)*fb);
+}
+
+/* ---------------- rendering: uncertainty ---------------- */
+
+function renderUncertainty(){
+  const id = document.getElementById("uDist").value || DISTRICTS[0].id;
+  const thr = +document.getElementById("uThr").value;
+  const series = State.data.forecast.filter(r=>r.districtId===id).sort((a,b)=>a.dayIdx-b.dayIdx);
+
+  const p10 = series.map(r=>quantile([...r.ens].sort((a,b)=>a-b),0.10));
+  const p25 = series.map(r=>quantile([...r.ens].sort((a,b)=>a-b),0.25));
+  const p50 = series.map(r=>quantile([...r.ens].sort((a,b)=>a-b),0.50));
+  const p75 = series.map(r=>quantile([...r.ens].sort((a,b)=>a-b),0.75));
+  const p90 = series.map(r=>quantile([...r.ens].sort((a,b)=>a-b),0.90));
+
+  document.getElementById("uSpread").textContent =
+    "mean IQR: " + fmt(mean(p75.map((v,i)=>v-p25[i])),2) + " mm";
+
+  mkChart("chEnsemble", {
+    type:"line",
+    data:{
+      labels:series.map(r=>"D+"+r.dayIdx+"  "+dayLabel(r.date)),
+      datasets:[
+        {label:"P10–P90", data:p90, borderColor:"transparent",
+         backgroundColor:"rgba(61,220,151,.12)", fill:"-2", pointRadius:0},
+        {label:"P10", data:p10, borderColor:"transparent", pointRadius:0, fill:false},
+        {label:"P25–P75", data:p75, borderColor:"transparent",
+         backgroundColor:"rgba(61,220,151,.22)", fill:"-2", pointRadius:0},
+        {label:"P25", data:p25, borderColor:"transparent", pointRadius:0, fill:false},
+        {label:"Median (corrected)", data:p50, borderColor:"#3ddc97", borderWidth:2.4, tension:.3, pointRadius:5},
+        {label:"Raw NWP", data:series.map(r=>r.raw), borderColor:"#6f83a8",
+         borderDash:[5,4], borderWidth:1.8, tension:.3, pointRadius:3},
+        {label:"Truth (synthetic)", data:series.map(r=>r.truth), borderColor:"#4fd8e8",
+         borderDash:[2,3], borderWidth:1.3, tension:.3, pointRadius:2}
+      ]
+    },
+    options:{responsive:true, maintainAspectRatio:false,
+      interaction:{mode:"index", intersect:false},
+      scales:{y:{grid:GRID, beginAtZero:true, title:{display:true,text:"mm/day"}}, x:{grid:{display:false}}},
+      plugins:{legend:{position:"bottom"}}}
+  });
+
+  const day = State.dayIdx;
+  const rows = State.data.forecast.filter(r=>r.dayIdx===day).map(r=>({
+    name:districtById(r.districtId).name,
+    p:exceedanceProb(r.ens, thr)
+  })).sort((a,b)=>b.p-a.p).slice(0,18);
+
+  mkChart("chExceed", {
+    type:"bar",
+    data:{
+      labels:rows.map(r=>r.name),
+      datasets:[{
+        label:`P(corrected > ${thr} mm)`,
+        data:rows.map(r=>r.p*100),
+        backgroundColor:rows.map(r=>probColor(r.p)),
+        borderRadius:4
+      }]
+    },
+    options:{responsive:true, maintainAspectRatio:false, indexAxis:"y",
+      scales:{x:{grid:GRID, min:0, max:100, title:{display:true,text:"%"}}, y:{grid:{display:false}}},
+      plugins:{legend:{display:false}}}
+  });
+
+  const cmp = State.data.forecast.filter(r=>r.dayIdx===day).map(r=>{
+    const p = [...r.ens].sort((a,b)=>a-b);
+    return {
+      name:districtById(r.districtId).name,
+      corr:quantile(p,0.75)-quantile(p,0.25),
+      raw:0
+    };
+  }).sort((a,b)=>b.corr-a.corr).slice(0,18);
+
+  mkChart("chUncComp", {
+    type:"bar",
+    data:{
+      labels:cmp.map(c=>c.name),
+      datasets:[
+        {label:"Corrected IQR", data:cmp.map(c=>c.corr), backgroundColor:"rgba(61,220,151,.8)", borderRadius:4},
+        {label:"Raw NWP IQR (not modelled)", data:cmp.map(()=>0), backgroundColor:"rgba(111,131,168,.5)", borderRadius:4}
+      ]
+    },
+    options:{responsive:true, maintainAspectRatio:false, indexAxis:"y",
+      scales:{x:{grid:GRID, title:{display:true,text:"IQR (mm)"}}, y:{grid:{display:false}}},
+      plugins:{legend:{position:"bottom"}}}
+  });
+
+  document.querySelector("#uncTbl tbody").innerHTML = State.data.forecast
+    .filter(r=>r.dayIdx===day)
+    .map(r=>{
+      const p = [...r.ens].sort((a,b)=>a-b);
+      const q1 = quantile(p,0.25), q3 = quantile(p,0.75);
+      const conf = r.confidence;
+      const label = conf>0.55 ? "high" : conf>0.35 ? "moderate" : "low";
+      const col = conf>0.55 ? "#3ddc97" : conf>0.35 ? "#ffc857" : "#ff6b6b";
+      return `<tr>
+        <td>${districtById(r.districtId).name}</td>
+        <td class="num">${fmt(quantile(p,0.10))}</td>
+        <td class="num">${fmt(q1)}</td>
+        <td class="num" style="color:#9ff0c6;font-weight:600">${fmt(quantile(p,0.50))}</td>
+        <td class="num">${fmt(q3)}</td>
+        <td class="num">${fmt(quantile(p,0.90))}</td>
+        <td class="num">${fmt(q3-q1)}</td>
+        <td class="num">${fmt(exceedanceProb(r.ens,thr)*100,0)}%</td>
+        <td><span style="color:${col}">● ${label}</span></td>
+      </tr>`;
+    }).join("");
+}
+
+/* ---------------- rendering: alerts ---------------- */
+
+function renderAlerts(){
+  const thr = +document.getElementById("alThr").value;
+  const minP = +document.getElementById("alProb").value / 100;
+  const day = +document.getElementById("alDay").value;
+
+  const rows = State.data.forecast.filter(r=>r.dayIdx===day).map(r=>{
+    const p = exceedanceProb(r.ens, thr);
+    const d = districtById(r.districtId);
+    let sev = null, sevLabel = "", cls = "";
+    if(p >= 0.75){ sev = "red"; sevLabel = "Critical"; cls="sev red"; }
+    else if(p >= 0.55){ sev = "orange"; sevLabel = "High"; cls="sev orange"; }
+    else if(p >= minP){ sev = "yellow"; sevLabel = "Watch"; cls="sev yellow"; }
+    return {d, r, p, thr, sev, sevLabel, cls, lead:r.dayIdx};
+  }).filter(x => x.sev).sort((a,b)=>b.p-a.p);
+
+  document.getElementById("alCount").textContent = rows.length + " alerts";
+
+  document.getElementById("alertList").innerHTML = rows.length ? rows.map(x=>`
+    <div class="alert-item">
+      <div class="${x.cls}"></div>
+      <div style="flex:1">
+        <div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap">
+          <b>${x.d.name}</b>
+          <span class="muted" style="font-size:11.5px">${x.d.state}</span>
+          <span class="chip ${REGIME_SHORT[x.r.regime]}">${x.r.regime}</span>
+          <span class="pill" style="margin-left:auto">${x.sevLabel}</span>
+        </div>
+        <div style="font-size:12px;color:#a8b8d8;margin-top:5px">
+          P(&gt;${fmt(x.thr,1)} mm) = <b class="mono" style="color:#e8eefc">${fmt(x.p*100,0)}%</b>
+          · median ${fmt(quantile([...x.r.ens].sort((a,b)=>a-b),0.5))} mm
+          · raw ${fmt(x.r.raw)} → corrected ${fmt(x.r.corr)} mm
+          · lead +${x.lead} d
+          · regime confidence ${fmt(x.r.confidence*100,0)}%
+        </div>
+      </div>
+    </div>`).join("")
+    : `<div class="empty">No districts meet the current probability threshold.</div>`;
+
+  const byDist = rows.slice(0,16).map(x=>({name:x.d.name, p:x.p*100, sev:x.sev}));
+  mkChart("chAlertBar", {
+    type:"bar",
+    data:{
+      labels:byDist.map(x=>x.name),
+      datasets:[{
+        label:`P(> ${thr} mm) %`,
+        data:byDist.map(x=>x.p),
+        backgroundColor:byDist.map(x=>x.sev==="red"?"#ff6b6b":x.sev==="orange"?"#ff9d4d":"#ffc857"),
+        borderRadius:4
+      }]
+    },
+    options:{responsive:true, maintainAspectRatio:false, indexAxis:"y",
+      scales:{x:{grid:GRID, min:0, max:100, title:{display:true,text:"probability (%)"}}, y:{grid:{display:false}}},
+      plugins:{legend:{display:false}}}
+  });
+
+  State._alertRows = rows.map(x=>({
+    district:x.d.name, state:x.d.state, threshold_mm:x.thr,
+    probability:x.p, severity:x.sevLabel, lead_days:x.lead,
+    raw_nwp_mm:x.r.raw, corrected_mm:x.r.corr, regime:x.r.regime,
+    regime_confidence:x.r.confidence, issue_time:isoDate(State.data.issue)
+  }));
+}
+
+/* ---------------- rendering: history ---------------- */
+
+function renderHistory(){
+  const id = document.getElementById("hDist").value || DISTRICTS[0].id;
+  const nDays = +document.getElementById("hDays").value;
+  const d = districtById(id);
+  const hist = archiveFor(id).slice(-nDays);
+
+  document.querySelector("#hExport").onclick = () => {
+    downloadCSV(`history_${id}_${nDays}d.csv`, hist.map(h=>({
+      date:isoDate(h.date), district:d.name, state:d.state,
+      observed_mm:+h.obs.toFixed(2), raw_nwp_mm:+h.raw.toFixed(2),
+      corrected_mm:+h.byChain.regime_adaptive.toFixed(2),
+      regime:h.regime, regime_confidence:+h.confidence.toFixed(3),
+      source:"SYNTHETIC (generator archive)"
+    })));
+  };
+
+  mkChart("chHist", {
+    type:"line",
+    data:{
+      labels:hist.map(h=>dayLabel(h.date)),
+      datasets:[
+        {label:"Observed (synthetic)", data:hist.map(h=>h.obs),
+         borderColor:"#4fd8e8", backgroundColor:"rgba(79,216,232,.10)",
+         borderWidth:1.6, fill:true, pointRadius:0, tension:.25},
+        {label:"Raw NWP", data:hist.map(h=>h.raw),
+         borderColor:"#6f83a8", borderDash:[5,4], borderWidth:1.5, pointRadius:0, tension:.25},
+        {label:"Corrected", data:hist.map(h=>h.byChain.regime_adaptive),
+         borderColor:"#3ddc97", borderWidth:1.9, pointRadius:0, tension:.25}
+      ]
+    },
+    options:{responsive:true, maintainAspectRatio:false,
+      scales:{y:{grid:GRID, beginAtZero:true, title:{display:true,text:"mm/day"}},
+              x:{grid:{display:false}, ticks:{maxTicksLimit:14}}},
+      plugins:{legend:{position:"bottom"}}}
+  });
+
+  const byMonth = {};
+  hist.forEach(h => {
+    const k = isoDate(h.date).slice(0,7);
+    if(!byMonth[k]) byMonth[k] = {obs:0, raw:0, corr:0, n:0};
+    byMonth[k].obs += h.obs; byMonth[k].raw += h.raw;
+    byMonth[k].corr += h.byChain.regime_adaptive; byMonth[k].n++;
+  });
+  const mKeys = Object.keys(byMonth).sort();
+  mkChart("chHistMonthly", {
+    type:"bar",
+    data:{
+      labels:mKeys,
+      datasets:[
+        {label:"Observed (synthetic)", data:mKeys.map(k=>byMonth[k].obs), backgroundColor:"rgba(79,216,232,.78)", borderRadius:4},
+        {label:"Raw NWP", data:mKeys.map(k=>byMonth[k].raw), backgroundColor:"rgba(111,131,168,.72)", borderRadius:4},
+        {label:"Corrected", data:mKeys.map(k=>byMonth[k].corr), backgroundColor:"rgba(61,220,151,.78)", borderRadius:4}
+      ]
+    },
+    options:{responsive:true, maintainAspectRatio:false,
+      scales:{y:{grid:GRID, beginAtZero:true, title:{display:true,text:"total mm"}}, x:{grid:{display:false}}},
+      plugins:{legend:{position:"bottom"}}}
+  });
+
+  const clim = mean(hist.map(h=>h.obs));
+  const anom = hist.map(h => clim ? (h.obs-clim)/clim*100 : 0);
+  mkChart("chAnom", {
+    type:"bar",
+    data:{
+      labels:hist.map(h=>dayLabel(h.date)),
+      datasets:[{
+        label:"Departure from window mean (%)",
+        data:anom,
+        backgroundColor:anom.map(a=>a>=0?"rgba(61,220,151,.75)":"rgba(255,107,107,.75)"),
+        borderRadius:2
+      }]
+    },
+    options:{responsive:true, maintainAspectRatio:false,
+      scales:{y:{grid:GRID, title:{display:true,text:"% anomaly"}},
+              x:{grid:{display:false}, ticks:{maxTicksLimit:12}}},
+      plugins:{legend:{display:false}}}
+  });
+
+  const freq = {};
+  REGIMES.forEach(r => freq[r]=0);
+  hist.forEach(h => freq[h.regime]++);
+  const regs = REGIMES.filter(r=>freq[r]>0);
+  mkChart("chHistRegime", {
+    type:"bar",
+    data:{
+      labels:regs,
+      datasets:[{
+        label:"Days",
+        data:regs.map(r=>freq[r]),
+        backgroundColor:regs.map(r=>REGIME_COLOR[r]+"cc"),
+        borderColor:regs.map(r=>REGIME_COLOR[r]),
+        borderWidth:1, borderRadius:4
+      }]
+    },
+    options:{responsive:true, maintainAspectRatio:false,
+      scales:{y:{grid:GRID, beginAtZero:true, title:{display:true,text:"days"}}, x:{grid:{display:false}}},
+      plugins:{legend:{display:false}}}
+  });
+}
+
+/* ---------------- rendering: models ---------------- */
+
+const CHAIN_REGISTRY = [
+  {id:"raw_baseline", family:"Baseline",     impl:true,  params:0,
+   regimeAware:false, note:"Uncalibrated NWP field, passed through unchanged."},
+  {id:"stat_bias",    family:"Statistical",  impl:true,  params:2,
+   regimeAware:false, note:"Constant multiplicative + additive bias correction, hand-set."},
+  {id:"quantile_map", family:"Statistical",  impl:true,  params:3,
+   regimeAware:false, note:"Monotone intensity-dependent remap via tanh curvature."},
+  {id:"regime_rule",  family:"Regime-aware", impl:true,  params:4,
+   regimeAware:true,  note:"Regime-specific scale/offset/intensity coefficients."},
+  {id:"regime_adaptive", family:"Regime-aware", impl:true, params:4,
+   regimeAware:true,  note:"Regime rule blended toward a regime-blind fallback by confidence."},
+  {id:"linear_reg",   family:"Statistical",  impl:false, params:null,
+   regimeAware:false, note:"Ordinary least squares on log-rainfall features."},
+  {id:"random_forest",family:"Machine learning", impl:false, params:null,
+   regimeAware:false, note:"Requires a labelled training archive."},
+  {id:"xgboost",      family:"Machine learning", impl:false, params:null,
+   regimeAware:false, note:"Requires a labelled training archive and hyperparameter search."},
+  {id:"lightgbm",     family:"Machine learning", impl:false, params:null,
+   regimeAware:false, note:"Requires a labelled training archive."},
+  {id:"lstm",         family:"Deep learning",impl:false, params:null,
+   regimeAware:true,  note:"Sequential model over forecast-lead windows; needs GPU training."},
+  {id:"gru",          family:"Deep learning",impl:false, params:null,
+   regimeAware:true,  note:"As LSTM, lighter parameterisation."},
+  {id:"cnn_grid",     family:"Deep learning",impl:false, params:null,
+   regimeAware:true,  note:"Spatial convolution over gridded NWP fields."},
+  {id:"transformer",  family:"Deep learning",impl:false, params:null,
+   regimeAware:true,  note:"Attention over spatio-temporal tokens."},
+  {id:"ensemble_avg", family:"Ensemble",     impl:false, params:null,
+   regimeAware:true,  note:"Weighted average of trained members; needs at least two trained models."}
+];
+
+function renderModels(){
+  document.querySelector("#modelTbl tbody").innerHTML = CHAIN_REGISTRY.map(c=>`
+    <tr>
+      <td>${CHAIN_LABEL[c.id] || c.id}</td>
+      <td class="muted">${c.family}</td>
+      <td>${c.impl
+        ? '<span class="chip" style="background:rgba(61,220,151,.13);border-color:rgba(61,220,151,.4);color:#9ff0c6">IMPLEMENTED</span>'
+        : '<span class="chip" style="background:rgba(255,107,107,.1);border-color:rgba(255,107,107,.35);color:#ffb8b8">NOT TRAINED</span>'}</td>
+      <td class="num">${c.params ?? "—"}</td>
+      <td class="num">${c.regimeAware ? "yes" : "no"}</td>
+      <td class="muted" style="white-space:normal;max-width:360px;font-size:11.5px">${c.note}</td>
+      <td>${c.impl
+        ? `<button class="btn" style="padding:4px 10px;font-size:11.5px" onclick="selectChain('${c.id}')">Use in XAI</button>`
+        : `<span class="muted" style="font-size:11px">unavailable</span>`}</td>
+    </tr>`).join("");
+
+  const M = chainMetrics();
+  const keys = State.data.chains;
+  mkChart("chModelComp", {
+    type:"bar",
+    data:{
+      labels:keys.map(k=>CHAIN_LABEL[k].replace(/ \(.*\)/,"")),
+      datasets:[
+        {label:"MAE (mm)", data:keys.map(k=>M[k].mae), backgroundColor:"rgba(77,163,255,.78)", borderRadius:4},
+        {label:"RMSE (mm)", data:keys.map(k=>M[k].rmse), backgroundColor:"rgba(177,140,255,.72)", borderRadius:4},
+        {label:"CSI", data:keys.map(k=>M[k].csi*50), backgroundColor:"rgba(61,220,151,.72)", borderRadius:4}
+      ]
+    },
+    options:{responsive:true, maintainAspectRatio:false,
+      scales:{y:{grid:GRID, beginAtZero:true, title:{display:true,text:"mm/day (CSI scaled ×50)"}}, x:{grid:{display:false}}},
+      plugins:{legend:{position:"bottom"},
+        tooltip:{callbacks:{afterLabel:c=>c.datasetIndex===2?"CSI value = "+(c.raw/50).toFixed(3):""}}}}
+  });
+
+  document.querySelector("#coefTbl tbody").innerHTML = REGIMES.map(r=>{
+    const c = REGIME_COEF[r];
+    return `<tr>
+      <td><span class="chip ${REGIME_SHORT[r]}">${r}</span></td>
+      <td class="num">${c.scale.toFixed(2)}</td>
+      <td class="num">${c.offset.toFixed(2)}</td>
+      <td class="num">${c.intensity.toFixed(2)}</td>
+      <td class="num">${c.oroGain.toFixed(2)}</td>
+      <td class="muted" style="white-space:normal;max-width:420px;font-size:11.5px">${c.why}</td>
+    </tr>`;
+  }).join("");
+}
+
+function selectChain(id){
+  const sel = document.getElementById("xaiModel");
+  if([...sel.options].some(o=>o.value===id)){
+    sel.value = id;
+    switchTab("xai");
+    renderXAI();
+  }
+}
+window.selectChain = selectChain;
+
+/* ---------------- rendering: data & QC ---------------- */
+
+function renderDataTab(){
+  const rows = State.data.forecast.slice(0, 40).map(r=>{
+    const d = districtById(r.districtId);
+    return `<tr>
+      <td>${isoDate(r.date)}</td><td>${d.name}</td><td>${d.state}</td>
+      <td class="num">${d.lat.toFixed(2)}</td><td class="num">${d.lon.toFixed(2)}</td>
+      <td class="num">${fmt(r.raw)}</td><td class="num">${fmt(r.corr)}</td>
+      <td>${r.regime}</td>
+    </tr>`;
+  }).join("");
+  document.getElementById("prevTbl").innerHTML = `
+    <thead><tr><th>date</th><th>district</th><th>state</th><th class="num">lat</th>
+    <th class="num">lon</th><th class="num">raw_nwp_mm</th><th class="num">corrected_mm</th><th>regime</th></tr></thead>
+    <tbody>${rows}</tbody>`;
+  document.getElementById("prevTag").textContent = "built-in synthetic sample (first 40 rows)";
+  renderSystemSources();
+}
+
+function parseCSV(text){
+  text = text.replace(/^\uFEFF/, "");
+  const rows = [];
+  let cur = [], field = "", inQ = false;
+  for(let i=0;i<text.length;i++){
+    const ch = text[i];
+    if(inQ){
+      if(ch === '"'){
+        if(text[i+1] === '"'){ field += '"'; i++; }
+        else inQ = false;
+      } else field += ch;
+    } else {
+      if(ch === '"') inQ = true;
+      else if(ch === ","){ cur.push(field); field = ""; }
+      else if(ch === "\n"){ cur.push(field); rows.push(cur); cur = []; field = ""; }
+      else if(ch === "\r"){ /* skip */ }
+      else field += ch;
+    }
+  }
+  if(field.length || cur.length){ cur.push(field); rows.push(cur); }
+  return rows.filter(r => r.some(c => c.trim() !== ""));
+}
+
+function runQC(headers, rows){
+  const idx = {
+    date: headers.findIndex(h => /^date$/i.test(h.trim())),
+    district: headers.findIndex(h => /^(district|name|station)$/i.test(h.trim())),
+    rainfall: headers.findIndex(h => /(rain|precip|mm)/i.test(h.trim()))
+  };
+
+  const issues = [];
+  const stats = {
+    total: rows.length, valid: 0, negatives: 0, duplicates: 0,
+    missingDate: 0, missingDistrict: 0, missingRainfall: 0,
+    unparsableDate: 0, outliers: 0, unknownDistrict: 0, badUnitSuspicion: 0
+  };
+
+  if(idx.date < 0) issues.push({sev:"bad", msg:"No <code>date</code> column found."});
+  if(idx.district < 0) issues.push({sev:"bad", msg:"No <code>district</code> column found."});
+  if(idx.rainfall < 0) issues.push({sev:"bad", msg:"No rainfall column found."});
+  if(issues.some(i=>i.sev==="bad")) return {ok:false, issues, stats, idx};
+
+  const knownNames = new Set(DISTRICTS.map(d=>d.name.toLowerCase()));
+  const seen = new Set();
+  const cleaned = [];
+
+  rows.forEach((r, n) => {
+    const lineNo = n + 2;
+    const dateRaw = (r[idx.date]||"").trim();
+    const distRaw = (r[idx.district]||"").trim();
+    const rainRaw = (r[idx.rainfall]||"").trim();
+
+    if(!dateRaw){ stats.missingDate++; return; }
+    if(!distRaw){ stats.missingDistrict++; return; }
+    if(rainRaw === ""){ stats.missingRainfall++; return; }
+
+    const dt = new Date(dateRaw);
+    if(Number.isNaN(dt.getTime())){ stats.unparsableDate++; return; }
+
+    const v = Number(rainRaw);
+    if(!Number.isFinite(v)) return;
+    if(v < 0) stats.negatives++;
+    if(v > 1200) stats.outliers++;
+    if(v > 0 && v < 0.6 && rows.length > 50) stats.badUnitSuspicion++;
+    if(!knownNames.has(distRaw.toLowerCase())) stats.unknownDistrict++;
+
+    const key = isoDate(dt) + "|" + distRaw.toLowerCase();
+    if(seen.has(key)) stats.duplicates++;
+    seen.add(key);
+    stats.valid++;
+    cleaned.push({date:isoDate(dt), district:distRaw, rainfall_mm:v, _row:lineNo});
+  });
+
+  if(!issues.length) issues.push({sev:"ok", msg:"No quality issues detected in the accepted rows."});
+  return {ok:true, issues, stats, idx, cleaned, headers};
+}
+
+function renderQCPanel(qc, fileName){
+  const p = document.getElementById("qcPanel");
+  p.classList.remove("hidden");
+  document.getElementById("qcFile").textContent = fileName;
+  const s = qc.stats;
+  document.getElementById("qcKpis").innerHTML = `
+    <div class="kpi"><div class="lbl">Rows read</div><div class="val">${s.total.toLocaleString()}</div></div>
+    <div class="kpi k-ai"><div class="lbl">Rows accepted</div><div class="val">${s.valid.toLocaleString()}</div>
+      <div class="meta">${((s.valid/(s.total||1))*100).toFixed(1)}% of input</div></div>
+    <div class="kpi k-risk"><div class="lbl">Flagged records</div>
+      <div class="val">${(s.negatives+s.outliers+s.duplicates).toLocaleString()}</div>
+      <div class="meta">neg ${s.negatives} · dup ${s.duplicates} · out ${s.outliers}</div></div>
+    <div class="kpi"><div class="lbl">Dropped (missing)</div>
+      <div class="val">${(s.missingDate+s.missingDistrict+s.missingRainfall+s.unparsableDate).toLocaleString()}</div></div>`;
+
+  const sevIcon = {bad:"⛔", warn:"⚠", ok:"✓"};
+  const sevClass = {bad:"bad", warn:"warn", ok:"ok"};
+  document.getElementById("qcIssues").innerHTML = qc.issues.slice(0,60).map(i=>
+    `<div class="banner ${sevClass[i.sev]}" style="margin:7px 0"><span>${sevIcon[i.sev]}</span><div>${i.msg}</div></div>`).join("");
+
+  document.getElementById("qcDownload").onclick = () => {
+    if(!qc.cleaned) return;
+    downloadCSV(`cleaned_${fileName.replace(/\.csv$/i,"")}.csv`, qc.cleaned.map(r=>({
+      date:r.date, district:r.district, rainfall_mm:r.rainfall_mm, source_row:r._row
+    })));
+  };
+  document.getElementById("qcAccept").onclick = () => {
+    State.uploads.push({ file:fileName, at:new Date(), rows:qc.stats.valid, flagged:qc.issues.filter(i=>i.sev!=="ok").length });
+    renderUploadHistory();
+    alert("Dataset registered for analysis (in-memory only — no retraining in this build).");
+  };
+  document.getElementById("qcDiscard").onclick = () => {
+    document.getElementById("qcPanel").classList.add("hidden");
+    State.qcResult = null;
+  };
+}
+
+function renderUploadHistory(){
+  const el = document.getElementById("uploadHistory");
+  if(!State.uploads.length){ el.innerHTML = `<div class="empty">No datasets uploaded this session.</div>`; return; }
+  el.innerHTML = `<div class="tbl-wrap" style="max-height:none"><table>
+    <thead><tr><th>File</th><th>Uploaded</th><th class="num">Rows</th><th class="num">Flagged</th></tr></thead>
+    <tbody>${State.uploads.map(u=>`<tr>
+      <td>${u.file}</td><td class="muted">${u.at.toLocaleString()}</td>
+      <td class="num">${u.rows}</td><td class="num">${u.flagged}</td></tr>`).join("")}
+    </tbody></table></div>`;
+}
+
+/* ---------------- rendering: system ---------------- */
+
+function renderSystemSources(){
+  document.querySelector("#srcTbl tbody").innerHTML = Object.values(SOURCES).map(s=>`
+    <tr>
+      <td>${s.label}</td>
+      <td class="muted">${s.kind}</td>
+      <td>${s.configured
+        ? '<span class="chip" style="background:rgba(61,220,151,.13);border-color:rgba(61,220,151,.4);color:#9ff0c6">active</span>'
+        : '<span class="chip" style="background:rgba(255,200,87,.1);border-color:rgba(255,200,87,.35);color:#f7dfa3">not configured</span>'}</td>
+      <td class="muted" style="white-space:normal;max-width:520px;font-size:11.5px">${s.configured ? (s.attribution||"") : (s.reason||"")}</td>
+    </tr>`).join("");
+}
+
+function renderSystemKpis(){
+  const now = new Date();
+  const age = State.lastUpdated ? Math.round((now - State.lastUpdated)/1000) : null;
+  document.getElementById("sysKpis").innerHTML = `
+    <div class="kpi k-ai"><div class="lbl">Data source</div>
+      <div class="val" style="font-size:15px">${State.data.source.label}</div>
+      <div class="meta">${State.data.source.id}</div></div>
+    <div class="kpi"><div class="lbl">Last refresh</div>
+      <div class="val" style="font-size:17px">${State.lastUpdated ? State.lastUpdated.toLocaleTimeString() : "—"}</div>
+      <div class="meta">${age==null?"":age+" s ago"}</div></div>
+    <div class="kpi k-obs"><div class="lbl">Records in memory</div>
+      <div class="val">${(State.data.forecast.length + State.data.archive.length).toLocaleString()}</div>
+      <div class="meta">${State.data.forecast.length} forecast · ${State.data.archive.length} archive</div></div>
+    <div class="kpi k-risk"><div class="lbl">Backend</div>
+      <div class="val" style="font-size:15px">not connected</div>
+      <div class="meta">frontend-only build</div></div>`;
+}
+
+function renderSystemLog(){
+  const el = document.getElementById("sysLog");
+  if(!el) return;
+  if(!State.log.length){ el.innerHTML = `<div class="empty">No events recorded yet.</div>`; return; }
+  const col = {ok:"#3ddc97", warn:"#ffc857", bad:"#ff6b6b", info:"#4da3ff"};
+  el.innerHTML = State.log.map(e=>
+    `<div><span style="color:#4a5c7d">${e.t.toLocaleTimeString()}</span>
+     <span style="color:${col[e.kind]||"#a8b8d8"}">[${e.kind}]</span>
+     <span style="color:#a8b8d8"> ${e.msg}</span></div>`).join("");
+}
+
+/* ---------------- CSV export ---------------- */
+
+function downloadCSV(filename, rows){
+  if(!rows.length){ alert("Nothing to export."); return; }
+  const headers = Object.keys(rows[0]);
+  const esc = v => {
+    if(v == null) return "";
+    const s = String(v);
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+  };
+  const csv = [headers.join(","), ...rows.map(r => headers.map(h=>esc(r[h])).join(","))].join("\r\n");
+  const blob = new Blob(["\uFEFF"+csv], {type:"text/csv;charset=utf-8;"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 0);
+  logEvent("info", `Exported ${filename} (${rows.length} rows)`);
+}
+
+/* ---------------- refresh & lifecycle ---------------- */
+
+function refreshData(force){
+  const t0 = performance.now();
+  setStatus("loading","refreshing…");
+  setTimeout(() => {
+    try{
+      State.data = DataEngine.get(!!force);
+      State.lastUpdated = new Date();
+      renderAll();
+      setStatus("ok", `live · ${State.data.source.id}`);
+      logEvent("ok", `Data refreshed in ${Math.round(performance.now()-t0)} ms`);
+    }catch(err){
+      setStatus("bad","error");
+      logEvent("bad", "Refresh failed: " + err.message);
+      console.error(err);
+    }
+  }, 90);
+}
+
+function setStatus(kind, text){
+  const dot = document.getElementById("statusDot");
+  dot.className = "dot " + (kind === "loading" ? "warn" : kind);
+  document.getElementById("statusTxt").textContent = text;
+}
+
+function renderGlobalBanner(){
+  const el = document.getElementById("globalBanner");
+  const s = State.data.source;
+  el.innerHTML = `
+    <div class="banner warn">
+      <span>⚠</span>
+      <div>
+        <b>Demonstration build — synthetic data.</b>
+        The active source is <b>${s.label}</b>. ${s.attribution}
+        Real IMD observations, NWP fields, satellite estimates and radar data are <b>not</b> connected;
+        see the <i>System</i> tab for the source registry.
+      </div>
+    </div>`;
+}
+
+/* ---------------- main dispatcher ---------------- */
+
+function renderAll(){
+  renderGlobalBanner();
+  switch(State.tab){
+    case "overview":  renderOverview(); break;
+    case "map":       renderMap(); break;
+    case "districts": renderDistrictTable(); renderDistrictDetail(); break;
+    case "verify":    renderVerification(); break;
+    case "xai":       renderXAI(); break;
+    case "uncert":    renderUncertainty(); break;
+    case "alerts":    renderAlerts(); break;
+    case "history":   renderHistory(); break;
+    case "models":    renderModels(); break;
+    case "data":      renderDataTab(); break;
+    case "system":    renderSystemKpis(); renderSystemLog(); renderSystemSources(); break;
+  }
+}
+
+function switchTab(name){
+  State.tab = name;
+
+  document.querySelectorAll("nav.tabs button").forEach(b =>
+    b.classList.toggle("active", b.dataset.tab === name)
+  );
+
+  document.querySelectorAll("section[data-panel]").forEach(s =>
+    s.classList.toggle("hidden", s.dataset.panel !== name)
+  );
+
+  // Stop the map day-animation whenever we leave the Map tab.
+  if(name !== "map" && State.animTimer){
+    clearInterval(State.animTimer);
+    State.animTimer = null;
+    const btn = document.getElementById("animBtn");
+    if(btn) btn.textContent = "▶ Animate days";
+  }
+
+  if(name === "map"){
+    // The section is now visible; wait for layout, then build/resize the map.
+    requestAnimationFrame(() => {
+      if(!initMap() || !map) return;
+      map.invalidateSize();
+      drawMapMarkers();
+      setTimeout(() => { if(map) map.invalidateSize(); }, 220);
+    });
+  } else {
+    renderAll();
+  }
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+/* ---------------- bootstrap ---------------- */
+
+function populateSelectors(){
+  const srcSel = document.getElementById("srcSel");
+  srcSel.innerHTML = Object.values(SOURCES).map(s =>
+    `<option value="${s.id}" ${s.configured?"":"disabled"}>${s.label}${s.configured?"":" — not configured"}</option>`
+  ).join("");
+  srcSel.value = "SYNTHETIC";
+  srcSel.addEventListener("change", e => {
+    const s = SOURCES[e.target.value];
+    if(!s.configured){
+      alert(`${s.label} is not configured in this build.\n\n${s.reason}\n\nReverting to the synthetic source.`);
+      srcSel.value = "SYNTHETIC";
+      return;
+    }
+  });
+
+  document.getElementById("regimeSel").innerHTML =
+    `<option value="all">All regimes (auto-classified)</option>` +
+    REGIMES.map(r=>`<option value="${r}">${r}</option>`).join("");
+
+  const dayOptions = [...Array(FORECAST_DAYS).keys()].map(k=>
+    `<option value="${k}">Day +${k} — ${dayLabel(addDays(SYNTH_ISSUE,k))}</option>`).join("");
+  ["daySel","mapDay","dDay","xaiDay","alDay"].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.innerHTML = dayOptions;
+  });
+
+  const distOptions = DISTRICTS.map(d=>
+    `<option value="${d.id}">${d.name} — ${d.state}</option>`).join("");
+  ["xaiDist","uDist","hDist"].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.innerHTML = distOptions;
+  });
+
+  document.getElementById("xaiModel").innerHTML =
+    State.data.chains.map(c=>`<option value="${c}" ${c==="regime_adaptive"?"selected":""}>${CHAIN_LABEL[c]}</option>`).join("");
+
+  document.getElementById("dState").innerHTML =
+    `<option value="all">All states</option>` +
+    allStates().map(s=>`<option value="${s}">${s}</option>`).join("");
+
+  document.getElementById("dRegime").innerHTML =
+    `<option value="all">All regimes</option>` +
+    REGIMES.map(r=>`<option value="${r}">${r}</option>`).join("");
+}
+
+function bindEvents(){
+  document.querySelectorAll("nav.tabs button").forEach(b =>
+    b.addEventListener("click", () => switchTab(b.dataset.tab)));
+
+  document.getElementById("thrSlider").addEventListener("input", e => {
+    State.threshold = +e.target.value;
+    document.getElementById("thrOut").textContent = fmt(State.threshold,1) + " mm";
+    if(["overview","uncert","alerts","map"].includes(State.tab)) renderAll();
+  });
+
+  document.getElementById("regimeSel").addEventListener("change", e => {
+    State.regimeFilter = e.target.value;
+  });
+
+  document.getElementById("daySel").addEventListener("change", e => { State.dayIdx = +e.target.value; renderAll(); });
+
+  // ---- map controls ----
+  document.getElementById("mapDay").addEventListener("change", e => {
+    State.mapDay = +e.target.value;
+    renderMap();
+  });
+  document.getElementById("mapLayer").addEventListener("change", e => {
+    State.mapLayer = e.target.value;
+    renderMap();
+  });
+  document.getElementById("mapSize").addEventListener("input", () => {
+    drawMapMarkers();
+  });
+  document.getElementById("mapBase").addEventListener("change", e => {
+    setBaseLayer(e.target.value);
+    logEvent("info", "Basemap switched to " + e.target.value);
+  });
+
+  ["dSearch","dState","dRegime","dDay","dMin"].forEach(id => {
+    const el = document.getElementById(id);
+    el.addEventListener("input", renderDistrictTable);
+    el.addEventListener("change", renderDistrictTable);
+  });
+
+  document.getElementById("dExport").addEventListener("click", () => {
+    const rows = filteredDistrictRows().map(r=>({
+      date: isoDate(State.data.forecast.find(f=>f.districtId===r.districtId && f.dayIdx===+document.getElementById("dDay").value).date),
+      district:r.name, state:r.state, regime:r.regime,
+      regime_confidence:+r.conf.toFixed(3),
+      raw_nwp_mm:+r.raw.toFixed(2), corrected_mm:+r.corr.toFixed(2),
+      correction_pct:+(r.delta*100).toFixed(2),
+      observed_mm: r.obs==null?"":+r.obs.toFixed(2),
+      p10_mm:+r.p10.toFixed(2), p90_mm:+r.p90.toFixed(2),
+      prob_exceed_threshold:+(r.pHeavy).toFixed(3),
+      threshold_mm: State.threshold,
+      data_source:"SYNTHETIC", model_version:"regime_adaptive v0.1-demo"
+    }));
+    downloadCSV(`district_forecast_${isoDate(new Date())}.csv`, rows);
+  });
+
+  document.getElementById("alExport").addEventListener("click", () => {
+    if(!State._alertRows || !State._alertRows.length){ alert("No alerts to export."); return; }
+    downloadCSV(`alerts_${isoDate(new Date())}.csv`, State._alertRows);
+  });
+
+  document.getElementById("verThr").addEventListener("change", e => {
+    State.verThrValue = +e.target.value;
+    renderVerification();
+  });
+
+  ["xaiDist","xaiDay","xaiModel"].forEach(id =>
+    document.getElementById(id).addEventListener("change", renderXAI));
+
+  document.getElementById("uDist").addEventListener("change", renderUncertainty);
+  document.getElementById("uThr").addEventListener("change", renderUncertainty);
+
+  ["alThr","alDay"].forEach(id => document.getElementById(id).addEventListener("change", renderAlerts));
+  document.getElementById("alProb").addEventListener("input", e => {
+    document.getElementById("alProbOut").textContent = e.target.value + "%";
+    renderAlerts();
+  });
+
+  ["hDist","hDays"].forEach(id => document.getElementById(id).addEventListener("change", renderHistory));
+
+  document.getElementById("refreshSel").addEventListener("change", e => {
+    if(State.refreshTimer) clearInterval(State.refreshTimer);
+    const ms = +e.target.value;
+    if(ms > 0){
+      State.refreshTimer = setInterval(() => refreshData(false), ms);
+      logEvent("info", `Auto-refresh enabled (${ms/1000}s interval)`);
+    } else {
+      logEvent("info", "Auto-refresh disabled");
+    }
+  });
+
+  document.getElementById("animBtn").addEventListener("click", e => {
+    if(State.animTimer){
+      clearInterval(State.animTimer); State.animTimer = null;
+      e.target.textContent = "▶ Animate days"; return;
+    }
+    e.target.textContent = "⏸ Stop animation";
+    let k = State.mapDay;
+    State.animTimer = setInterval(() => {
+      k = (k + 1) % FORECAST_DAYS;
+      State.mapDay = k;
+      document.getElementById("mapDay").value = k;
+      drawMapMarkers();
+    }, 1300);
+  });
+
+  const fz = document.getElementById("filezone");
+  const fi = document.getElementById("fileInput");
+  fz.addEventListener("click", () => fi.click());
+  fz.addEventListener("dragover", e => { e.preventDefault(); fz.classList.add("drag"); });
+  fz.addEventListener("dragleave", () => fz.classList.remove("drag"));
+  fz.addEventListener("drop", e => {
+    e.preventDefault(); fz.classList.remove("drag");
+    if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+  });
+  fi.addEventListener("change", e => { if(e.target.files[0]) handleFile(e.target.files[0]); });
+
+  const hm = document.getElementById("helpModal");
+  document.getElementById("helpBtn").addEventListener("click", () => hm.classList.add("show"));
+  document.getElementById("helpClose").addEventListener("click", () => hm.classList.remove("show"));
+  hm.addEventListener("click", e => { if(e.target === hm) hm.classList.remove("show"); });
+
+  document.addEventListener("keydown", e => {
+    if(e.target.matches("input, select, textarea")) return;
+    if(e.key === "Escape"){ document.getElementById("helpModal").classList.remove("show"); return; }
+    if(e.key === "?"){ document.getElementById("helpModal").classList.toggle("show"); return; }
+    if(e.key.toLowerCase() === "r"){ refreshData(false); return; }
+    const map = {"1":"overview","2":"map","3":"districts","4":"verify","5":"xai",
+                 "6":"uncert","7":"alerts","8":"history","9":"models","0":"data"};
+    if(map[e.key]) switchTab(map[e.key]);
+  });
+
+  window.addEventListener("resize", () => {
+    if(map) map.invalidateSize();
+  });
+}
+
+function handleFile(file){
+  if(file.size > 20*1024*1024){ alert("File exceeds the 20 MB limit."); return; }
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try{
+      const rows = parseCSV(ev.target.result);
+      if(rows.length < 2){ alert("File appears empty or has no data rows."); return; }
+      const headers = rows[0].map(h => h.trim());
+      const qc = runQC(headers, rows.slice(1));
+      State.qcResult = qc;
+      renderQCPanel(qc, file.name);
+      document.getElementById("qcPanel").scrollIntoView({behavior:"smooth", block:"nearest"});
+      logEvent(qc.ok ? "ok" : "bad", `QC on "${file.name}": ${qc.stats ? qc.stats.valid : 0} valid rows`);
+    }catch(err){
+      alert("Could not parse the file: " + err.message);
+      logEvent("bad", "Upload parse error: " + err.message);
+    }
+  };
+  reader.readAsText(file, "utf-8");
+}
+
+/* ---------------- init ---------------- */
+
+(function init(){
+  logEvent("info","Booting Regime-Aware AI Post-Processor v0.1-demo");
+  logEvent("warn","Data source is SYNTHETIC. No real observations or forecasts are connected.");
+  State.data = DataEngine.get(true);
+  State.lastUpdated = new Date();
+  State.verThrValue = 64.5;
+  populateSelectors();
+  bindEvents();
+  renderAll();
+  setStatus("ok","live · SYNTHETIC");
+  logEvent("ok","Dashboard ready");
+  document.getElementById("thrOut").textContent = fmt(State.threshold,1) + " mm";
+})();
+</script>
+</body>
+</html>
